@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* netral */
+    --bg-page: #F8FAFC;
+    --bg-surface: #FFFFFF;
+    --bg-subtle: #F1F5F9;
+    --border-default: #E2E8F0;
+    --border-input: #7C8BA1;
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
+    --text-muted: #64748B;
+    --text-placeholder: #94A3B8;
+    
+    /* aksen */
+    --primary: #047857;
+    --primary-hover: #065F46;
+    --primary-soft: #ECFDF5;
+    --primary-ring: #059669;
+    --danger: #B91C1C;
+    --danger-hover: #991B1B;
+    
+    /* semantik: latar / teks */
+    --success-bg: #D1FAE5;
+    --success-fg: #065F46;
+    --warning-bg: #FEF3C7;
+    --warning-fg: #92400E;
+    --danger-bg: #FEE2E2;
+    --danger-fg: #991B1B;
+    --info-bg: #DBEAFE;
+    --info-fg: #1E40AF;
+    --violet-bg: #EDE9FE;
+    --violet-fg: #5B21B6;
+    --sky-bg: #E0F2FE;
+    --sky-fg: #075985;
+    --orange-bg: #FFEDD5;
+    --orange-fg: #9A3412;
+    --neutral-bg: #F1F5F9;
+    --neutral-fg: #334155;
+    
+    /* bentuk */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --shadow-xs: 0 1px 2px rgba(15,23,42,.06);
+    --shadow-md: 0 4px 12px rgba(15,23,42,.10);
+    --shadow-lg: 0 12px 32px rgba(15,23,42,.18);
+    
+    /* layout */
+    --sidebar-w: 256px;
+    --sidebar-w-collapsed: 72px;
+    --topbar-h: 64px;
+  }
+
+  body {
+    @apply bg-page text-text-primary font-sans antialiased;
+  }
+}
+
+/* Base Heading Styles */
+@layer base {
+  h1, .h1 {
+    @apply text-[24px] leading-[32px] font-semibold;
+  }
+  h2, .h2 {
+    @apply text-[20px] leading-[28px] font-semibold;
+  }
+  h3, .h3 {
+    @apply text-[16px] leading-[24px] font-semibold;
+  }
+}
+
+/* Typography utilities from PRD */
+@layer utilities {
+  .text-display {
+    @apply text-[30px] leading-[36px] font-bold tabular-nums;
+  }
+  .text-body-lg {
+    @apply text-[16px] leading-[24px] font-normal;
+  }
+  .text-body {
+    @apply text-[14px] leading-[20px] font-normal;
+  }
+  .text-label {
+    @apply text-[14px] leading-[20px] font-medium;
+  }
+  .text-caption {
+    @apply text-[12px] leading-[16px] font-normal;
+  }
+}
