@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Wallet, Download, CheckCircle, FileText } from 'lucide-react';
+import { api } from '../../lib/api';
 
 export function Payroll() {
+  const [periods, setPeriods] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get('/payroll-periods').then(res => setPeriods(res.data));
+  }, []);
+
   return (
     <div className="space-y-6">
       <PageHeader 
@@ -52,38 +59,24 @@ export function Payroll() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              <tr className="border-b border-border-default hover:bg-subtle/50 transition-colors">
-                <td className="p-4 font-medium">Oktober 2026</td>
-                <td className="p-4">25 Okt 2026</td>
-                <td className="p-4">42</td>
-                <td className="p-4">Rp 120.500.000</td>
-                <td className="p-4">
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-success-soft text-success">
-                    Dibayar
-                  </span>
-                </td>
-                <td className="p-4 text-right">
-                  <Button variant="outline" size="sm" icon={<Download className="w-4 h-4" />}>
-                    Rekap
-                  </Button>
-                </td>
-              </tr>
-              <tr className="border-b border-border-default hover:bg-subtle/50 transition-colors">
-                <td className="p-4 font-medium">September 2026</td>
-                <td className="p-4">25 Sep 2026</td>
-                <td className="p-4">40</td>
-                <td className="p-4">Rp 115.000.000</td>
-                <td className="p-4">
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-success-soft text-success">
-                    Dibayar
-                  </span>
-                </td>
-                <td className="p-4 text-right">
-                  <Button variant="outline" size="sm" icon={<Download className="w-4 h-4" />}>
-                    Rekap
-                  </Button>
-                </td>
-              </tr>
+              {periods.map((p, idx) => (
+                <tr key={idx} className="border-b border-border-default hover:bg-subtle/50 transition-colors">
+                  <td className="p-4 font-medium">{p.name}</td>
+                  <td className="p-4">{p.pay_date}</td>
+                  <td className="p-4">42</td>
+                  <td className="p-4">Rp 120.500.000</td>
+                  <td className="p-4">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${p.status === 'paid' ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>
+                      {p.status}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right">
+                    <Button variant="outline" size="sm" icon={<Download className="w-4 h-4" />}>
+                      Rekap
+                    </Button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

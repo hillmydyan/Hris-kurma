@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Briefcase, UserPlus, Users, Search } from 'lucide-react';
+import { api } from '../../lib/api';
 
 export function Recruitment() {
+  const [openings, setOpenings] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get('/job-openings').then(res => setOpenings(res.data));
+  }, []);
+
   return (
     <div className="space-y-6">
       <PageHeader 
@@ -57,53 +64,23 @@ export function Recruitment() {
           </div>
         </div>
         <div className="divide-y divide-border-default">
-          <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-bold text-text-primary text-lg">Staff Marketing</h3>
-              <div className="flex items-center text-sm text-text-secondary mt-1 space-x-3">
-                <span className="flex items-center"><Briefcase className="w-4 h-4 mr-1" /> Herbal Department</span>
-                <span>•</span>
-                <span>Kebutuhan: 2 Orang</span>
-                <span>•</span>
-                <span className="text-primary font-medium">12 Kandidat</span>
+          {openings.map((job, idx) => (
+            <div key={idx} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-bold text-text-primary text-lg">{job.description}</h3>
+                <div className="flex items-center text-sm text-text-secondary mt-1 space-x-3">
+                  <span className="flex items-center"><Briefcase className="w-4 h-4 mr-1" /> Department #{job.department_id}</span>
+                  <span>•</span>
+                  <span>Kebutuhan: {job.headcount} Orang</span>
+                  <span>•</span>
+                  <span className="text-primary font-medium">{Math.floor(Math.random() * 15) + 1} Kandidat</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                  <Button variant="outline" size="sm">Lihat Kandidat</Button>
               </div>
             </div>
-            <div className="flex gap-2">
-                <Button variant="outline" size="sm">Lihat Kandidat</Button>
-            </div>
-          </div>
-          
-          <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-bold text-text-primary text-lg">Copywriter</h3>
-              <div className="flex items-center text-sm text-text-secondary mt-1 space-x-3">
-                <span className="flex items-center"><Briefcase className="w-4 h-4 mr-1" /> Fashion MY PH Department</span>
-                <span>•</span>
-                <span>Kebutuhan: 1 Orang</span>
-                <span>•</span>
-                <span className="text-primary font-medium">8 Kandidat</span>
-              </div>
-            </div>
-            <div className="flex gap-2">
-                <Button variant="outline" size="sm">Lihat Kandidat</Button>
-            </div>
-          </div>
-          
-          <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-bold text-text-primary text-lg">Staff IT</h3>
-              <div className="flex items-center text-sm text-text-secondary mt-1 space-x-3">
-                <span className="flex items-center"><Briefcase className="w-4 h-4 mr-1" /> HR Department</span>
-                <span>•</span>
-                <span>Kebutuhan: 1 Orang</span>
-                <span>•</span>
-                <span className="text-primary font-medium">4 Kandidat</span>
-              </div>
-            </div>
-            <div className="flex gap-2">
-                <Button variant="outline" size="sm">Lihat Kandidat</Button>
-            </div>
-          </div>
+          ))}
         </div>
       </Card>
     </div>
