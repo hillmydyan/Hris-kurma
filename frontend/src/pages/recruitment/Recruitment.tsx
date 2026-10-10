@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Briefcase, UserPlus, Users, Search } from 'lucide-react';
@@ -13,13 +12,16 @@ export function Recruitment() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <PageHeader 
-        title="Rekrutmen" 
-        subtitle="Kelola lowongan pekerjaan, kandidat, dan proses onboarding."
-      >
-        <Button icon={<UserPlus className="w-4 h-4" />}>Tambah Lowongan</Button>
-      </PageHeader>
+    <div className="space-y-6 animate-in fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="h1 text-text-primary">Rekrutmen</h1>
+          <p className="text-body text-text-secondary">Kelola lowongan pekerjaan, kandidat, dan proses onboarding.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button leftIcon={<UserPlus className="w-4 h-4" />}>Tambah Lowongan</Button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4 flex items-center space-x-4 border-l-4 border-primary">

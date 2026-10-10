@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Wallet, Download, CheckCircle, FileText } from 'lucide-react';
@@ -13,13 +12,16 @@ export function Payroll() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <PageHeader 
-        title="Penggajian" 
-        subtitle="Kelola periode penggajian, komponen, dan slip gaji karyawan."
-      >
-        <Button>Buat Periode Gaji</Button>
-      </PageHeader>
+    <div className="space-y-6 animate-in fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="h1 text-text-primary">Penggajian</h1>
+          <p className="text-body text-text-secondary">Kelola periode penggajian, komponen, dan slip gaji karyawan.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button>Buat Periode Gaji</Button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4 flex items-center space-x-4">
