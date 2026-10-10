@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Briefcase, UserPlus, Users, Search } from 'lucide-react';
-import { api } from '../../lib/api';
+import api from '../../lib/api';
 
 export function Recruitment() {
   const [openings, setOpenings] = useState<any[]>([]);
