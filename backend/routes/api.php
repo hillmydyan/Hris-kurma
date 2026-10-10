@@ -56,4 +56,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('leaves', \App\Http\Controllers\LeaveController::class)->only(['index', 'store', 'update']);
     Route::apiResource('tasks', \App\Http\Controllers\TaskController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::apiResource('kpis', \App\Http\Controllers\KpiController::class)->only(['index', 'store']);
+    Route::apiResource('payroll-periods', \App\Http\Controllers\PayrollPeriodController::class)->only(['index', 'store']);
+    Route::apiResource('job-openings', \App\Http\Controllers\JobOpeningController::class)->only(['index']);
 });

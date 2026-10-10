@@ -11,7 +11,9 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Wallet,
+  Briefcase
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -45,6 +47,8 @@ export function Sidebar({ isOpen, onClose, isCompact, toggleCompact }: SidebarPr
       items: [
         { name: 'Karyawan', path: '/karyawan', icon: <Users /> },
         { name: 'Absensi Admin', path: '/absensi/admin', icon: <Clock /> },
+        { name: 'Penggajian', path: '/penggajian', icon: <Wallet /> },
+        { name: 'Rekrutmen', path: '/rekrutmen', icon: <Briefcase /> },
         { name: 'Laporan', path: '/laporan', icon: <FileBarChart /> },
       ]
     },

@@ -19,6 +19,8 @@ import { Kpi } from './pages/kpi/Kpi';
 import { Reports } from './pages/report/Reports';
 import { Settings } from './pages/system/Settings';
 import { Notifications } from './pages/system/Notifications';
+import { Payroll } from './pages/payroll/Payroll';
+import { Recruitment } from './pages/recruitment/Recruitment';
 
 function App() {
   return (
@@ -46,6 +48,8 @@ function App() {
             <Route path=":id" element={<EmployeeDetail />} />
           </Route>
           <Route path="persetujuan" element={<Approval />} />
+          <Route path="penggajian" element={<Payroll />} />
+          <Route path="rekrutmen" element={<Recruitment />} />
           <Route path="laporan" element={<Reports />} />
           <Route path="notifikasi" element={<Notifications />} />
           <Route path="pengaturan" element={<Settings />} />
