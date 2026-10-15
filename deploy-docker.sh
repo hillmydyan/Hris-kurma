@@ -7,6 +7,11 @@ echo "=== Memulai Deploy HRIS (All-in-One Container) ==="
 echo ">> Menarik update git..."
 git pull origin main || true
 
+# 2. Sinkronkan .env dari backend ke root untuk docker-compose
+if [ -f backend/.env ]; then
+    cp backend/.env .env
+fi
+
 # 2. Build image tunggal (React + Laravel + Nginx + Worker)
 echo ">> Membangun All-in-One Docker container..."
 docker compose build hris
