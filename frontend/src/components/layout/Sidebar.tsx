@@ -90,6 +90,7 @@ export function Sidebar({ isOpen, onClose, isCompact, toggleCompact }: SidebarPr
         { name: 'Absensi QR', path: '/absensi', icon: <QrCode /> },
         { name: 'Pengajuan Izin', path: '/cuti', icon: <Calendar /> },
         { name: 'Daily Report', path: '/daily-report', icon: <FileSpreadsheet /> },
+        { name: 'Slip Gaji', path: '/slip-gaji', icon: <Wallet /> },
         ...(isManager ? [
           { name: 'Monitor Absensi Live', path: '/admin/absensi/live', icon: <Tv />, badge: 'Live' },
           { name: 'Layar QR Kantor', path: '/admin/absensi/qr-screen', icon: <QrCode /> },

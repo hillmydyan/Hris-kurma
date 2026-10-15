@@ -14,6 +14,7 @@ import { MyProfile } from './pages/employee/MyProfile';
 import { MyAttendance } from './pages/attendance/MyAttendance';
 import { MyLeave } from './pages/leave/MyLeave';
 import { DailyReport } from './pages/daily-report/DailyReport';
+import { MySlipGaji } from './pages/payroll/MySlipGaji';
 import { Notifications } from './pages/system/Notifications';
 
 // Management Backend Pages
@@ -79,6 +80,7 @@ function App() {
             <Route path="absensi" element={<MyAttendance />} />
             <Route path="cuti" element={<MyLeave />} />
             <Route path="daily-report" element={<DailyReport />} />
+            <Route path="slip-gaji" element={<MySlipGaji />} />
             <Route path="notifikasi" element={<Notifications />} />
 
             {/* === MANAGEMENT BACKEND - Restricted to Authorized Managers/HR/Admin === */}

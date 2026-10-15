@@ -106,6 +106,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('payroll/summary', [\App\Http\Controllers\PayrollPeriodController::class, 'summary']);
     Route::post('payroll/adjust', [\App\Http\Controllers\PayrollPeriodController::class, 'adjust']);
     Route::delete('payroll/adjust/{employeeId}', [\App\Http\Controllers\PayrollPeriodController::class, 'resetAdjustment']);
+    Route::post('payroll/publish-all', [\App\Http\Controllers\PayrollPeriodController::class, 'publishAll']);
+    Route::post('payroll/publish-single', [\App\Http\Controllers\PayrollPeriodController::class, 'publishSingle']);
+    Route::post('payroll/unpublish', [\App\Http\Controllers\PayrollPeriodController::class, 'unpublish']);
+    Route::get('payroll/my-slips', [\App\Http\Controllers\PayrollPeriodController::class, 'mySlips']);
+    Route::get('payroll/my-latest-slip', [\App\Http\Controllers\PayrollPeriodController::class, 'myLatestSlip']);
     Route::apiResource('payroll-periods', \App\Http\Controllers\PayrollPeriodController::class)->only(['index', 'store']);
 
     // User Management & Password Endpoints

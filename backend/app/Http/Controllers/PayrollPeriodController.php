@@ -8,7 +8,10 @@ use App\Models\PayrollRecord;
 use App\Models\Employee;
 use App\Models\Attendance;
 use App\Models\WorkdaySwap;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PayrollPeriodController extends Controller
 {
@@ -39,38 +42,15 @@ class PayrollPeriodController extends Controller
     }
 
     /**
-     * Get live payroll overview directly calculated from Employee Data and Attendance records.
-     * Formula:
-     * - Basis: 26 hari kerja sebulan (6 hari kerja seminggu).
-     * - Tarif harian = Gaji Pokok / 26.
-     * - Gaji Pokok Diterima = (Hari Hadir / 26) * Gaji Pokok.
-     * - Sakit / Izin / Alpa memotong gaji (terhitung tidak hadir).
-     * - Uang Makan: Rp 11.000 / hari jika hadir & kedatangan <= 09:15 WIB. Telat > 15m = Uang makan hangus.
+     * Hitung kalkulasi payroll karyawan untuk rentang tanggal dan period_key tertentu.
+     * Digunakan bersama oleh summary(), publishAll(), dan publishSingle().
      */
-    public function summary(Request $request)
+    private function calculatePayrollForPeriod($startDate, $endDate, $periodKey, $targetEmployeeId = null)
     {
-        $today = Carbon::now();
-        // Cut-off penggajian mulai setelah tanggal 27 (yaitu tanggal 28 s/d tanggal 27)
-        if ($today->day > 27) {
-            $defaultStart = $today->copy()->day(28)->toDateString();
-            $defaultEnd = $today->copy()->addMonthNoOverflow()->day(27)->toDateString();
-            $defaultPeriodKey = $today->copy()->addMonthNoOverflow()->format('Y-m');
-            $defaultPeriodName = 'Periode 28 ' . $today->translatedFormat('M') . ' - 27 ' . $today->copy()->addMonthNoOverflow()->translatedFormat('M Y');
-        } else {
-            $defaultStart = $today->copy()->subMonthNoOverflow()->day(28)->toDateString();
-            $defaultEnd = $today->copy()->day(27)->toDateString();
-            $defaultPeriodKey = $today->copy()->format('Y-m');
-            $defaultPeriodName = 'Periode 28 ' . $today->copy()->subMonthNoOverflow()->translatedFormat('M') . ' - 27 ' . $today->translatedFormat('M Y');
-        }
-
-        $startDate = $request->input('start_date', $defaultStart);
-        $endDate = $request->input('end_date', $defaultEnd);
-        $periodKey = $request->input('period_key', $defaultPeriodKey);
-
         // Ambil data koreksi manual dari HR untuk periode ini
         $adjustments = \App\Models\PayrollAdjustment::where('period_key', $periodKey)->get()->keyBy('employee_id');
 
-        $employees = Employee::with([
+        $query = Employee::with([
             'currentAssignment.department',
             'currentAssignment.jobPosition',
             'attendances' => function ($q) use ($startDate, $endDate) {
@@ -91,13 +71,19 @@ class PayrollPeriodController extends Controller
                   });
             },
             'user'
-        ])->where('status', 'active')->get();
+        ])->where('status', 'active');
+
+        if ($targetEmployeeId) {
+            $query->where('id', $targetEmployeeId);
+        }
+
+        $employees = $query->get();
 
         $mealRatePerDay = self::MEAL_RATE_PER_DAY;
         $standardWorkingDays = self::STANDARD_WORKING_DAYS;
         $maxToleranceTime = self::MAX_ONTIME_TOLERANCE;
 
-        $employeeData = $employees->map(function ($e) use ($mealRatePerDay, $standardWorkingDays, $maxToleranceTime, $adjustments, $startDate, $endDate) {
+        return $employees->map(function ($e) use ($mealRatePerDay, $standardWorkingDays, $maxToleranceTime, $adjustments, $startDate, $endDate) {
             $basicSalary = (float)($e->basic_salary ?? 0);
             $dailyRate = $basicSalary > 0 ? round($basicSalary / $standardWorkingDays) : 0;
             $joinDate = $e->join_date ? Carbon::parse($e->join_date)->toDateString() : null;
@@ -173,10 +159,6 @@ class PayrollPeriodController extends Controller
             }
 
             // PERHITUNGAN GAJI POKOK & PRORATA:
-            // 1. Karyawan Prorata (karena tidak masuk full 1 bulan, misal join date di pertengahan periode):
-            //    Gaji Pokok dihitung proporsional sesuai hari kerja aktif yang dijalani.
-            // 2. Karyawan Terdaftar Penuh (1 bulan):
-            //    Gaji Pokok SELALU UTUH 100% (segala jenis izin, sakit, alpa tidak memotong gaji pokok).
             if ($isProrated) {
                 $earnedBasicSalary = $basicSalary > 0 
                     ? (float)round(($presentDays / $standardWorkingDays) * $basicSalary)
@@ -187,7 +169,6 @@ class PayrollPeriodController extends Controller
                 $prorataDeduction = 0;
             }
 
-            // Gaji pokok tidak dipotong untuk izin/sakit/alpa karyawan reguler
             $unattendedDeduction = 0;
 
             // Total Uang Makan Aktual (Rp 11.000 / hari hadir memenuhi syarat <= 08:15 WIB)
@@ -209,6 +190,7 @@ class PayrollPeriodController extends Controller
             return [
                 'id' => $e->id,
                 'employee_id' => $e->employee_id,
+                'user_id' => $e->user_id,
                 'nik' => $e->nik ?? ('3271' . str_pad($e->id, 12, '0', STR_PAD_LEFT)),
                 'name' => $e->first_name . ' ' . ($e->last_name ?? ''),
                 'department' => $e->currentAssignment?->department?->name ?? 'Umum',
@@ -242,6 +224,47 @@ class PayrollPeriodController extends Controller
                 'status' => $e->status,
             ];
         });
+    }
+
+    /**
+     * Get live payroll overview directly calculated from Employee Data and Attendance records.
+     */
+    public function summary(Request $request)
+    {
+        $today = Carbon::now();
+        // Cut-off penggajian mulai setelah tanggal 27 (yaitu tanggal 28 s/d tanggal 27)
+        if ($today->day > 27) {
+            $defaultStart = $today->copy()->day(28)->toDateString();
+            $defaultEnd = $today->copy()->addMonthNoOverflow()->day(27)->toDateString();
+            $defaultPeriodKey = $today->copy()->addMonthNoOverflow()->format('Y-m');
+            $defaultPeriodName = 'Periode 28 ' . $today->translatedFormat('M') . ' - 27 ' . $today->copy()->addMonthNoOverflow()->translatedFormat('M Y');
+        } else {
+            $defaultStart = $today->copy()->subMonthNoOverflow()->day(28)->toDateString();
+            $defaultEnd = $today->copy()->day(27)->toDateString();
+            $defaultPeriodKey = $today->copy()->format('Y-m');
+            $defaultPeriodName = 'Periode 28 ' . $today->copy()->subMonthNoOverflow()->translatedFormat('M') . ' - 27 ' . $today->translatedFormat('M Y');
+        }
+
+        $startDate = $request->input('start_date', $defaultStart);
+        $endDate = $request->input('end_date', $defaultEnd);
+        $periodKey = $request->input('period_key', $defaultPeriodKey);
+
+        $employeeData = $this->calculatePayrollForPeriod($startDate, $endDate, $periodKey);
+
+        // Ambil data publikasi yang sudah tersimpan untuk periode ini
+        $publishedRecords = PayrollRecord::where('period_key', $periodKey)->get()->keyBy('employee_id');
+        $payrollPeriod = PayrollPeriod::where('period_key', $periodKey)->first();
+
+        $employeeData = $employeeData->map(function ($emp) use ($publishedRecords) {
+            $rec = $publishedRecords->get($emp['id']);
+            $emp['is_published'] = $rec ? (bool)$rec->is_published : false;
+            $emp['published_at'] = $rec?->published_at ? $rec->published_at->translatedFormat('d M Y H:i') : null;
+            $emp['payroll_record_id'] = $rec?->id;
+            return $emp;
+        });
+
+        $publishedCount = $employeeData->where('is_published', true)->count();
+        $isPeriodPublished = $payrollPeriod ? (bool)$payrollPeriod->is_published : ($publishedCount > 0 && $publishedCount === $employeeData->count());
 
         $totalBasicRegistered = $employeeData->sum('basic_salary');
         $totalEarnedBasic = $employeeData->sum('earned_basic_salary');
@@ -256,7 +279,7 @@ class PayrollPeriodController extends Controller
             'cutoff_end_date' => $endDate,
             'period_key' => $periodKey,
             'period_label' => $defaultPeriodName,
-            'standard_working_days' => $standardWorkingDays,
+            'standard_working_days' => self::STANDARD_WORKING_DAYS,
             'total_monthly_payroll' => $totalMonthlyPayroll,
             'total_basic_registered' => $totalBasicRegistered,
             'total_earned_basic' => $totalEarnedBasic,
@@ -264,10 +287,306 @@ class PayrollPeriodController extends Controller
             'total_deduction' => $totalDeduction,
             'total_meal_allowance' => $totalMealAllowance,
             'total_meal_deduction' => $totalMealDeduction,
-            'meal_rate_per_day' => $mealRatePerDay,
-            'active_employees_count' => $employees->count(),
+            'meal_rate_per_day' => self::MEAL_RATE_PER_DAY,
+            'active_employees_count' => $employeeData->count(),
             'notes' => 'Siklus cut-off tanggal 28 s/d 27. Prorata berlaku untuk yang tidak masuk full 1 bulan (karyawan baru). Gaji pokok karyawan reguler utuh 100% (segala jenis izin/sakit/alpa hanya memotong uang makan Rp 11.000/hari).',
+            'is_period_published' => $isPeriodPublished,
+            'period_published_at' => $payrollPeriod?->published_at ? $payrollPeriod->published_at->translatedFormat('d M Y H:i') : null,
+            'published_employees_count' => $publishedCount,
             'employees' => $employeeData,
+        ]);
+    }
+
+    /**
+     * Rilis / Kirim seluruh slip gaji karyawan dalam periode cut-off ke Dashboard masing-masing.
+     */
+    public function publishAll(Request $request)
+    {
+        $user = $request->user();
+        if (!$user->can('payroll.process') && !$user->hasAnyRole(['super-admin', 'owner', 'direksi', 'hr-manager', 'hr'])) {
+            return response()->json(['error' => 'Anda tidak memiliki hak akses untuk menerbitkan slip gaji.'], 403);
+        }
+
+        $validated = $request->validate([
+            'period_key' => 'required|string',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
+            'period_label' => 'nullable|string',
+        ]);
+
+        $periodKey = $validated['period_key'];
+        $startDate = $validated['start_date'];
+        $endDate = $validated['end_date'];
+        $periodLabel = $validated['period_label'] ?: "Periode {$startDate} s/d {$endDate}";
+
+        $period = PayrollPeriod::updateOrCreate(
+            ['period_key' => $periodKey],
+            [
+                'name' => $periodLabel,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'pay_date' => $endDate,
+                'status' => 'approved',
+                'is_published' => true,
+                'published_at' => Carbon::now(),
+                'published_by' => $user->id,
+            ]
+        );
+
+        $calculatedEmployees = $this->calculatePayrollForPeriod($startDate, $endDate, $periodKey);
+        $publishedCount = 0;
+
+        foreach ($calculatedEmployees as $empData) {
+            $record = PayrollRecord::updateOrCreate(
+                [
+                    'payroll_period_id' => $period->id,
+                    'employee_id' => $empData['id'],
+                ],
+                [
+                    'period_key' => $periodKey,
+                    'gross_pay' => (int)($empData['basic_salary'] + $empData['meal_allowance']),
+                    'total_deductions' => (int)($empData['prorata_deduction'] + $empData['meal_deduction']),
+                    'net_pay' => (int)$empData['total_salary'],
+                    'snapshot_data' => array_merge($empData, [
+                        'period_name' => $periodLabel,
+                        'start_date' => $startDate,
+                        'end_date' => $endDate,
+                        'published_at' => Carbon::now()->toIso8601String(),
+                    ]),
+                    'status' => 'final',
+                    'is_published' => true,
+                    'published_at' => Carbon::now(),
+                    'published_by' => $user->id,
+                ]
+            );
+
+            // Kirim in-app notifikasi jika karyawan memiliki akun user
+            if (!empty($empData['user_id'])) {
+                DB::table('notifications')->insert([
+                    'id' => (string) Str::uuid(),
+                    'type' => 'App\Notifications\PayslipPublished',
+                    'notifiable_type' => User::class,
+                    'notifiable_id' => $empData['user_id'],
+                    'data' => json_encode([
+                        'title' => 'Slip Gaji Diterbitkan',
+                        'message' => "Slip gaji resmi Anda untuk {$periodLabel} telah diterbitkan dan dapat diunduh di Dashboard Anda.",
+                        'category' => 'payroll',
+                        'sender_name' => 'HR Management',
+                        'period_key' => $periodKey,
+                        'payroll_record_id' => $record->id,
+                    ]),
+                    'created_at' => Carbon::now(),
+                    'updated_at' => Carbon::now(),
+                ]);
+            }
+
+            $publishedCount++;
+        }
+
+        return response()->json([
+            'message' => "Berhasil menerbitkan {$publishedCount} slip gaji ke Dashboard karyawan.",
+            'published_count' => $publishedCount,
+            'published_at' => Carbon::now()->translatedFormat('d M Y H:i'),
+        ]);
+    }
+
+    /**
+     * Kirim slip gaji ke satu karyawan tertentu.
+     */
+    public function publishSingle(Request $request)
+    {
+        $user = $request->user();
+        if (!$user->can('payroll.process') && !$user->hasAnyRole(['super-admin', 'owner', 'direksi', 'hr-manager', 'hr'])) {
+            return response()->json(['error' => 'Anda tidak memiliki hak akses untuk menerbitkan slip gaji.'], 403);
+        }
+
+        $validated = $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+            'period_key' => 'required|string',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
+            'period_label' => 'nullable|string',
+        ]);
+
+        $empId = $validated['employee_id'];
+        $periodKey = $validated['period_key'];
+        $startDate = $validated['start_date'];
+        $endDate = $validated['end_date'];
+        $periodLabel = $validated['period_label'] ?: "Periode {$startDate} s/d {$endDate}";
+
+        $period = PayrollPeriod::firstOrCreate(
+            ['period_key' => $periodKey],
+            [
+                'name' => $periodLabel,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'pay_date' => $endDate,
+                'status' => 'draft',
+            ]
+        );
+
+        $calculated = $this->calculatePayrollForPeriod($startDate, $endDate, $periodKey, $empId);
+        $empData = $calculated->firstWhere('id', $empId);
+
+        if (!$empData) {
+            return response()->json(['error' => 'Data karyawan tidak ditemukan untuk kalkulasi payroll.'], 404);
+        }
+
+        $record = PayrollRecord::updateOrCreate(
+            [
+                'payroll_period_id' => $period->id,
+                'employee_id' => $empId,
+            ],
+            [
+                'period_key' => $periodKey,
+                'gross_pay' => (int)($empData['basic_salary'] + $empData['meal_allowance']),
+                'total_deductions' => (int)($empData['prorata_deduction'] + $empData['meal_deduction']),
+                'net_pay' => (int)$empData['total_salary'],
+                'snapshot_data' => array_merge($empData, [
+                    'period_name' => $periodLabel,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'published_at' => Carbon::now()->toIso8601String(),
+                ]),
+                'status' => 'final',
+                'is_published' => true,
+                'published_at' => Carbon::now(),
+                'published_by' => $user->id,
+            ]
+        );
+
+        // Notifikasi ke karyawan
+        if (!empty($empData['user_id'])) {
+            DB::table('notifications')->insert([
+                'id' => (string) Str::uuid(),
+                'type' => 'App\Notifications\PayslipPublished',
+                'notifiable_type' => User::class,
+                'notifiable_id' => $empData['user_id'],
+                'data' => json_encode([
+                    'title' => 'Slip Gaji Diterbitkan',
+                    'message' => "Slip gaji resmi Anda untuk {$periodLabel} telah diterbitkan dan dapat diunduh di Dashboard Anda.",
+                    'category' => 'payroll',
+                    'sender_name' => 'HR Management',
+                    'period_key' => $periodKey,
+                    'payroll_record_id' => $record->id,
+                ]),
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ]);
+        }
+
+        return response()->json([
+            'message' => "Slip gaji {$empData['name']} berhasil diterbitkan ke Dashboard karyawan.",
+            'employee_id' => $empId,
+            'is_published' => true,
+            'published_at' => Carbon::now()->translatedFormat('d M Y H:i'),
+        ]);
+    }
+
+    /**
+     * Batalkan / Tarik penerbitan slip gaji jika ada revisi.
+     */
+    public function unpublish(Request $request)
+    {
+        $user = $request->user();
+        if (!$user->can('payroll.process') && !$user->hasAnyRole(['super-admin', 'owner', 'direksi', 'hr-manager', 'hr'])) {
+            return response()->json(['error' => 'Anda tidak memiliki hak akses.'], 403);
+        }
+
+        $validated = $request->validate([
+            'period_key' => 'required|string',
+            'employee_id' => 'nullable|exists:employees,id',
+        ]);
+
+        $periodKey = $validated['period_key'];
+        $empId = $request->input('employee_id');
+
+        if ($empId) {
+            PayrollRecord::where('period_key', $periodKey)
+                ->where('employee_id', $empId)
+                ->update(['is_published' => false]);
+            return response()->json(['message' => 'Publikasi slip gaji karyawan berhasil ditarik/dibatalkan.']);
+        } else {
+            PayrollRecord::where('period_key', $periodKey)->update(['is_published' => false]);
+            PayrollPeriod::where('period_key', $periodKey)->update(['is_published' => false]);
+            return response()->json(['message' => 'Seluruh publikasi slip gaji untuk periode ini berhasil dibatalkan.']);
+        }
+    }
+
+    /**
+     * Get all published payslips for the logged-in employee (Riwayat Slip Gaji Saya).
+     */
+    public function mySlips(Request $request)
+    {
+        $user = $request->user();
+        $employee = $user->employee;
+
+        if (!$employee) {
+            return response()->json([]);
+        }
+
+        $records = PayrollRecord::with('period')
+            ->where('employee_id', $employee->id)
+            ->where('is_published', true)
+            ->orderByDesc('published_at')
+            ->get();
+
+        $formatted = $records->map(function ($r) {
+            $snap = $r->snapshot_data ?: [];
+            return [
+                'id' => $r->id,
+                'period_key' => $r->period_key,
+                'period_name' => $snap['period_name'] ?? $r->period?->name ?? 'Slip Gaji',
+                'start_date' => $snap['start_date'] ?? $r->period?->start_date,
+                'end_date' => $snap['end_date'] ?? $r->period?->end_date,
+                'published_at' => $r->published_at ? $r->published_at->translatedFormat('d M Y H:i') : null,
+                'published_at_raw' => $r->published_at?->toIso8601String(),
+                'net_pay' => $r->net_pay,
+                'gross_pay' => $r->gross_pay,
+                'total_deductions' => $r->total_deductions,
+                'details' => $snap,
+            ];
+        });
+
+        return response()->json($formatted);
+    }
+
+    /**
+     * Get latest published payslip for the logged-in employee (Widget Dashboard Karyawan).
+     */
+    public function myLatestSlip(Request $request)
+    {
+        $user = $request->user();
+        $employee = $user->employee;
+
+        if (!$employee) {
+            return response()->json(['slip' => null]);
+        }
+
+        $record = PayrollRecord::with('period')
+            ->where('employee_id', $employee->id)
+            ->where('is_published', true)
+            ->orderByDesc('published_at')
+            ->first();
+
+        if (!$record) {
+            return response()->json(['slip' => null]);
+        }
+
+        $snap = $record->snapshot_data ?: [];
+        return response()->json([
+            'slip' => [
+                'id' => $record->id,
+                'period_key' => $record->period_key,
+                'period_name' => $snap['period_name'] ?? $record->period?->name ?? 'Slip Gaji Terbaru',
+                'start_date' => $snap['start_date'] ?? $record->period?->start_date,
+                'end_date' => $snap['end_date'] ?? $record->period?->end_date,
+                'published_at' => $record->published_at ? $record->published_at->translatedFormat('d M Y H:i') : null,
+                'net_pay' => $record->net_pay,
+                'gross_pay' => $record->gross_pay,
+                'total_deductions' => $record->total_deductions,
+                'details' => $snap,
+            ]
         ]);
     }
 

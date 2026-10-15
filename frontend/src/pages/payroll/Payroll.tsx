@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Badge } from '../../components/ui/Badge';
 import { Modal, ConfirmFooter } from '../../components/ui/Modal';
 import { 
   Plus, 
@@ -14,10 +15,13 @@ import {
   Printer, 
   MoreVertical,
   User,
-  Loader2
+  Loader2,
+  Send,
+  CheckCircle2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
+import { formatRupiah, generateSlipHtml, printSlipDocument } from '../../utils/slipGenerator';
 
 // Helper: Format tanggal Indonesia (WIB)
 function formatShortDateIndo(dateStr?: string): string {
@@ -77,6 +81,11 @@ export function Payroll() {
   const [selectedSlipEmployee, setSelectedSlipEmployee] = useState<any>(null);
   const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
 
+  // State for Payslip Publishing (Rilis ke Dashboard Karyawan)
+  const [publishingAll, setPublishingAll] = useState(false);
+  const [publishingSingleId, setPublishingSingleId] = useState<number | null>(null);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+
   // State for HR Manual Payroll Adjustment Modal
   const [selectedAdjustmentEmployee, setSelectedAdjustmentEmployee] = useState<any>(null);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
@@ -128,14 +137,6 @@ export function Payroll() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const formatRupiah = (val: number) => {
-    return new Intl.NumberFormat('id-ID', { 
-      style: 'currency', 
-      currency: 'IDR', 
-      maximumFractionDigits: 0 
-    }).format(val || 0);
-  };
-
   const handleCreatePeriod = async () => {
     if (!newPeriod.name || !newPeriod.start_date || !newPeriod.end_date) {
       alert('Nama periode, tanggal mulai, dan tanggal selesai wajib diisi.');
@@ -157,327 +158,70 @@ export function Payroll() {
     }
   };
 
-  // Generate official HTML slip document for printing or downloading (Preserved)
-  const generateSlipHtml = (emp: any) => {
-    const periodMonth = summary?.period_label || new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-    const printDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    const slipNo = `SLIP/${emp.employee_id}/${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const handlePublishAll = async () => {
+    if (!summary) return;
+    setPublishingAll(true);
+    try {
+      const res = await api.post('/payroll/publish-all', {
+        period_key: summary.period_key,
+        start_date: summary.cutoff_start_date,
+        end_date: summary.cutoff_end_date,
+        period_label: summary.period_label,
+      });
+      alert(res.data?.message || 'Seluruh slip gaji berhasil dirilis ke Dashboard karyawan.');
+      setIsPublishModalOpen(false);
+      fetchData();
+    } catch (error: any) {
+      console.error('Error publishing all slips:', error);
+      alert(error.response?.data?.error || error.response?.data?.message || 'Gagal merilis slip gaji.');
+    } finally {
+      setPublishingAll(false);
+    }
+  };
 
-    return `<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <title>Slip Gaji - ${emp.name} (${emp.employee_id}) - ${periodMonth}</title>
-  <style>
-    @page { size: A4; margin: 15mm; }
-    * { box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-      color: #1e293b;
-      background: #ffffff;
-      margin: 0;
-      padding: 24px;
-      font-size: 13px;
-      line-height: 1.5;
+  const handlePublishSingle = async (emp: any) => {
+    if (!summary) return;
+    setPublishingSingleId(emp.id);
+    try {
+      const res = await api.post('/payroll/publish-single', {
+        employee_id: emp.id,
+        period_key: summary.period_key,
+        start_date: summary.cutoff_start_date,
+        end_date: summary.cutoff_end_date,
+        period_label: summary.period_label,
+      });
+      alert(res.data?.message || `Slip gaji ${emp.name} berhasil dikirim ke Dashboard karyawan.`);
+      fetchData();
+    } catch (error: any) {
+      console.error('Error publishing single slip:', error);
+      alert(error.response?.data?.error || error.response?.data?.message || 'Gagal mengirim slip gaji.');
+    } finally {
+      setPublishingSingleId(null);
     }
-    .slip-card {
-      max-width: 720px;
-      margin: 0 auto;
-      border: 2px solid #0f172a;
-      border-radius: 10px;
-      padding: 30px;
-      background: #fff;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      border-bottom: 2px solid #0f172a;
-      padding-bottom: 16px;
-      margin-bottom: 20px;
-    }
-    .company-brand h1 {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 800;
-      color: #4f46e5;
-      letter-spacing: -0.3px;
-    }
-    .company-brand p {
-      margin: 3px 0 0 0;
-      font-size: 11px;
-      color: #64748b;
-    }
-    .doc-badge {
-      text-align: right;
-    }
-    .doc-badge h2 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 800;
-      color: #0f172a;
-      text-transform: uppercase;
-    }
-    .doc-badge .period {
-      margin: 3px 0 0 0;
-      font-size: 12px;
-      color: #047857;
-      font-weight: 600;
-    }
-    .slip-no {
-      font-family: monospace;
-      font-size: 11px;
-      color: #64748b;
-      margin-top: 2px;
-    }
-    .employee-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px 24px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 14px 18px;
-      margin-bottom: 18px;
-      font-size: 12px;
-    }
-    .field-row {
-      display: flex;
-    }
-    .field-label {
-      width: 130px;
-      color: #64748b;
-      font-weight: 500;
-    }
-    .field-value {
-      flex: 1;
-      font-weight: 600;
-      color: #0f172a;
-    }
-    .attendance-note-box {
-      background: #fefce8;
-      border: 1px solid #fef08a;
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-bottom: 18px;
-      font-size: 11.5px;
-      line-height: 1.5;
-    }
-    .attendance-note-box strong {
-      color: #854d0e;
-    }
-    .table-slip {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 18px;
-    }
-    .table-slip th {
-      background: #0f172a;
-      color: #ffffff;
-      padding: 9px 12px;
-      text-align: left;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .table-slip td {
-      padding: 9px 12px;
-      border-bottom: 1px solid #e2e8f0;
-      font-size: 12.5px;
-    }
-    .total-banner {
-      background: #ecfdf5;
-      border: 2px solid #059669;
-      border-radius: 8px;
-      padding: 14px 18px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-    .total-banner .label {
-      font-size: 13px;
-      font-weight: 700;
-      color: #065f46;
-      text-transform: uppercase;
-    }
-    .total-banner .amount {
-      font-size: 20px;
-      font-family: monospace;
-      font-weight: 900;
-      color: #047857;
-    }
-    .bank-info {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-bottom: 24px;
-      font-size: 12px;
-      color: #166534;
-    }
-    .signatures {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 30px;
-      margin-top: 30px;
-      text-align: center;
-      font-size: 12px;
-    }
-    .sig-space {
-      height: 60px;
-    }
-    .sig-line {
-      border-top: 1px solid #64748b;
-      padding-top: 6px;
-      font-weight: 600;
-      color: #0f172a;
-    }
-    .footer-note {
-      text-align: center;
-      font-size: 10px;
-      color: #94a3b8;
-      margin-top: 24px;
-      border-top: 1px dashed #cbd5e1;
-      padding-top: 12px;
-    }
-    @media print {
-      body { padding: 0; background: none; }
-      .slip-card { border: 1.5px solid #000; box-shadow: none; border-radius: 0; padding: 20px; }
-      .no-print { display: none !important; }
-    }
-  </style>
-</head>
-<body>
-  <div class="slip-card">
-    <div class="header">
-      <div class="company-brand">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-          <img src="${window.location.origin}/logo.ico" alt="" style="width:36px;height:36px;object-fit:contain;" />
-          <div>
-            <h1>PT KURMA GROUP INDONESIA</h1>
-            <p>Graha Kurma Tower, Lt. 8, Jl. TB Simatupang No. 18, Jakarta Selatan</p>
-          </div>
-        </div>
-        <p>Telp: (021) 789-2233 • Email: finance@kurmagroup.co.id</p>
-      </div>
-      <div class="doc-badge">
-        <h2>SLIP GAJI KARYAWAN</h2>
-        <div class="period">Periode: ${periodMonth}</div>
-        <div class="slip-no">No: ${slipNo}</div>
-      </div>
-    </div>
+  };
 
-    <div class="employee-grid">
-      <div class="field-row"><div class="field-label">NIK / ID Karyawan:</div><div class="field-value">${emp.employee_id} / ${emp.nik || '-'}</div></div>
-      <div class="field-row"><div class="field-label">Nama Karyawan:</div><div class="field-value">${emp.name}</div></div>
-      <div class="field-row"><div class="field-label">Departemen:</div><div class="field-value">${emp.department}</div></div>
-      <div class="field-row"><div class="field-label">Jabatan:</div><div class="field-value">${emp.job_position}</div></div>
-      <div class="field-row"><div class="field-label">Tipe Hubungan Kerja:</div><div class="field-value">${emp.employment_type === 'permanent' ? 'Karyawan Tetap (PKWTT)' : 'Karyawan Kontrak (PKWT)'}</div></div>
-      <div class="field-row"><div class="field-label">Tanggal Cetak:</div><div class="field-value">${printDate}</div></div>
-    </div>
+  const handleUnpublish = async (empId?: number) => {
+    if (!summary) return;
+    const confirmMsg = empId 
+      ? 'Tarik publikasi slip gaji untuk karyawan ini dari Dashboard?' 
+      : `Tarik seluruh publikasi slip gaji periode ${summary.period_label} dari Dashboard karyawan?`;
+    if (!confirm(confirmMsg)) return;
 
-    <div class="attendance-note-box">
-      <strong>Catatan Kehadiran & Basis Hari Kerja (26 Hari Kerja / Bulan):</strong><br>
-      • Basis Standar Kerja: <strong>26 Hari Kerja</strong> (6 hari kerja/minggu • 1 hari libur akhir pekan)<br>
-      • Kehadiran Aktual: <strong>${emp.present_days ?? 0} Hari</strong> | Tidak Hadir: <strong>${emp.unattended_days || 0} Hari</strong><br>
-      • Hadir Tepat Waktu (&le; 08:15 WIB): <strong>${emp.eligible_meal_days} Hari</strong> (Berhak Uang Makan = ${formatRupiah(emp.meal_allowance)})<br>
-      • Telat Lebih dari 15 Menit (&gt; 08:15 WIB): <strong>${emp.late_over_15_days} Hari</strong> (<em>Uang makan hari tersebut hangus</em>)<br>
-      • Jadwal Akhir Pekan: <strong>${emp.weekend_pattern_label || 'Tetap Masuk Sabtu (Minggu OFF)'}</strong>
-    </div>
-
-    <table class="table-slip">
-      <thead>
-        <tr>
-          <th style="width: 50%;">Komponen Penerimaan (Earnings)</th>
-          <th style="width: 25%;">Keterangan Perhitungan</th>
-          <th style="width: 25%; text-align: right;">Jumlah (Rp)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Gaji Pokok</strong></td>
-          <td>${emp.is_prorated ? `Bulanan Prorata (${emp.present_days}/26 hari kerja aktif)` : 'Bulanan Tetap (100% Utuh)'}</td>
-          <td style="text-align: right; font-weight: bold;">${formatRupiah(emp.earned_basic_salary || emp.basic_salary)}</td>
-        </tr>
-        <tr>
-          <td><strong>Uang Makan Aktual</strong></td>
-          <td>${emp.eligible_meal_days} hari hadir tepat waktu &times; Rp 11.000</td>
-          <td style="text-align: right; font-weight: bold;">${formatRupiah(emp.meal_allowance)}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <table class="table-slip">
-      <thead>
-        <tr>
-          <th style="width: 50%;">Komponen Potongan (Deductions)</th>
-          <th style="width: 25%;">Keterangan Perhitungan</th>
-          <th style="width: 25%; text-align: right;">Jumlah (Rp)</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${emp.is_prorated && emp.prorata_deduction > 0 ? `
-        <tr>
-          <td>Potongan Prorata (Tidak Masuk Penuh 1 Bulan)</td>
-          <td>${emp.unattended_days} hari belum bekerja / cut-off</td>
-          <td style="text-align: right; color: #4f46e5;">-${formatRupiah(emp.prorata_deduction)}</td>
-        </tr>` : `
-        <tr>
-          <td>Potongan Gaji Pokok (Izin / Sakit / Alpa)</td>
-          <td>Gaji pokok utuh 100% (tidak ada potongan)</td>
-          <td style="text-align: right; color: #10b981;">Rp 0</td>
-        </tr>`}
-        <tr>
-          <td>Potongan Uang Makan (Izin / Sakit / Alpa / Telat)</td>
-          <td>${emp.is_prorated ? 'Hari izin / absen setelah tanggal masuk' : `${(emp.unattended_days || 0) + (emp.late_over_15_days || 0)} hari tidak dapat uang makan`}</td>
-          <td style="text-align: right; color: #dc2626;">-${formatRupiah(emp.meal_deduction || ((emp.unattended_days || 0) * 11000))}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="total-banner">
-      <div class="label">Total Diterima (Take Home Pay):</div>
-      <div class="amount">${formatRupiah(emp.total_salary)}</div>
-    </div>
-
-    <div class="bank-info">
-      <strong>Transfer Rekening:</strong> ${emp.bank_name || 'BCA'} • No. ${emp.bank_account_number || '-'} a.n. ${emp.bank_account_holder || emp.name}
-    </div>
-
-    <div class="signatures">
-      <div>
-        <p>Disetujui Oleh,</p>
-        <div class="sig-space"></div>
-        <div class="sig-line">Finance & HRD Kurma Group</div>
-      </div>
-      <div>
-        <p>Diterima Oleh,</p>
-        <div class="sig-space"></div>
-        <div class="sig-line">${emp.name}</div>
-      </div>
-    </div>
-
-    <div class="footer-note">
-      Slip gaji ini dicetak secara otomatis melalui Sistem HRIS PT Kurma Group Indonesia. Dokumen ini sah dan bersifat rahasia (confidential).
-    </div>
-  </div>
-</body>
-</html>`;
+    try {
+      const res = await api.post('/payroll/unpublish', {
+        period_key: summary.period_key,
+        employee_id: empId,
+      });
+      alert(res.data?.message || 'Publikasi slip gaji berhasil dibatalkan.');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error unpublishing:', error);
+      alert(error.response?.data?.error || error.response?.data?.message || 'Gagal membatalkan publikasi.');
+    }
   };
 
   const handlePrintSlip = (emp: any) => {
-    const html = generateSlipHtml(emp);
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 350);
-    }
+    printSlipDocument(emp, summary?.period_label);
   };
 
   const openSlipModal = (emp: any) => {
@@ -553,20 +297,63 @@ export function Payroll() {
       {/* Header Halaman */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-text-primary tracking-tight">Manajemen Payroll</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold text-text-primary tracking-tight">Manajemen Payroll</h1>
+            {summary?.is_period_published ? (
+              <Badge variant="success" dot>
+                Dirilis ({summary?.published_employees_count || 0}/{summary?.active_employees_count || 0} Karyawan)
+              </Badge>
+            ) : (summary?.published_employees_count || 0) > 0 ? (
+              <Badge variant="warning" dot>
+                Sebagian Dirilis ({summary?.published_employees_count}/{summary?.active_employees_count})
+              </Badge>
+            ) : (
+              <Badge variant="neutral">
+                Draft (Belum Dirilis ke Karyawan)
+              </Badge>
+            )}
+          </div>
           <p className="text-xs text-text-muted mt-0.5">
             Periode {formatPeriodRange(summary?.cutoff_start_date, summary?.cutoff_end_date)} · {summary?.standard_working_days || 26} hari kerja
+            {summary?.period_published_at && (
+              <span className="ml-2 text-emerald-700 font-medium">• Diterbitkan {summary.period_published_at}</span>
+            )}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <Button 
             variant="primary" 
+            size="sm"
+            leftIcon={<Send className="w-4 h-4" />}
+            onClick={() => setIsPublishModalOpen(true)}
+            disabled={publishingAll || loading}
+            className="h-9 text-xs font-medium whitespace-nowrap"
+            title="Kirim seluruh slip gaji resmi periode ini ke Dashboard masing-masing karyawan"
+          >
+            Rilis Semua Slip
+          </Button>
+
+          {(summary?.published_employees_count || 0) > 0 && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              leftIcon={<RotateCcw className="w-4 h-4" />}
+              onClick={() => handleUnpublish()}
+              className="h-9 text-xs font-medium whitespace-nowrap text-rose-600 hover:text-rose-700"
+              title="Tarik seluruh publikasi slip gaji periode ini dari Dashboard"
+            >
+              Tarik Rilis
+            </Button>
+          )}
+
+          <Button 
+            variant="secondary" 
             size="sm"
             leftIcon={<Plus className="w-4 h-4" />}
             onClick={() => setIsModalOpen(true)}
             className="h-9 text-xs font-medium whitespace-nowrap"
           >
-            Buat Periode Gaji Baru
+            Buat Periode Baru
           </Button>
         </div>
       </div>
@@ -730,9 +517,23 @@ export function Payroll() {
                         {/* 1. Karyawan */}
                         <td className="py-3 px-4">
                           <div className="space-y-0.5 min-w-0">
-                            <p className="font-medium text-text-primary text-xs truncate leading-tight">
-                              {emp.name}
-                            </p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-medium text-text-primary text-xs truncate leading-tight">
+                                {emp.name}
+                              </p>
+                              {emp.is_published ? (
+                                <span 
+                                  className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-full shrink-0" 
+                                  title={`Slip gaji terbit ke dashboard pada ${emp.published_at || ''}`}
+                                >
+                                  <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> Terkirim
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-normal text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded-full shrink-0">
+                                  Draft
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[11px] text-text-muted truncate leading-tight max-w-[220px]">
                               {emp.employee_id} • {emp.department} • {emp.job_position} • {patternLabel}
                             </p>
@@ -812,6 +613,31 @@ export function Payroll() {
                         {/* 7. Aksi */}
                         <td className="py-3 px-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5 relative">
+                            {emp.is_published ? (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                leftIcon={<RotateCcw className="w-3.5 h-3.5 text-rose-600" />}
+                                onClick={() => handleUnpublish(emp.id)}
+                                className="h-8 text-xs font-medium px-2 text-rose-600 hover:text-rose-700 border-rose-200"
+                                title="Tarik slip dari dashboard karyawan"
+                              >
+                                Tarik
+                              </Button>
+                            ) : (
+                              <Button 
+                                variant="primary" 
+                                size="sm" 
+                                leftIcon={publishingSingleId === emp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                onClick={() => handlePublishSingle(emp)}
+                                disabled={publishingSingleId === emp.id}
+                                className="h-8 text-xs font-medium px-2.5"
+                                title="Kirim slip gaji resmi ke dashboard karyawan ini"
+                              >
+                                Kirim
+                              </Button>
+                            )}
+
                             <Button 
                               variant="outline" 
                               size="sm" 
@@ -848,8 +674,45 @@ export function Payroll() {
                               {activeMenuId === emp.id && (
                                 <div 
                                   ref={actionMenuRef}
-                                  className="absolute right-0 mt-1 w-36 bg-surface rounded-lg shadow-md border border-border-default z-20 py-1 text-left animate-in zoom-in-95"
+                                  className="absolute right-0 mt-1 w-44 bg-surface rounded-lg shadow-md border border-border-default z-20 py-1 text-left animate-in zoom-in-95"
                                 >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      handlePrintSlip(emp);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-xs text-text-primary hover:bg-subtle flex items-center gap-2 text-left"
+                                  >
+                                    <Printer className="w-3.5 h-3.5 text-text-muted" />
+                                    Cetak Slip (PDF)
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      if (emp.is_published) {
+                                        handleUnpublish(emp.id);
+                                      } else {
+                                        handlePublishSingle(emp);
+                                      }
+                                    }}
+                                    className="w-full px-3 py-1.5 text-xs text-text-primary hover:bg-subtle flex items-center gap-2 text-left"
+                                  >
+                                    {emp.is_published ? (
+                                      <>
+                                        <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+                                        <span className="text-rose-600">Tarik dari Dashboard</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Send className="w-3.5 h-3.5 text-primary" />
+                                        <span>Kirim ke Dashboard</span>
+                                      </>
+                                    )}
+                                  </button>
+
                                   <Link
                                     to={`/admin/karyawan/${emp.id}`}
                                     className="w-full px-3 py-1.5 text-xs text-text-primary hover:bg-subtle flex items-center gap-2"
@@ -1031,6 +894,67 @@ export function Payroll() {
         </div>
       </Card>
 
+      {/* MODAL KONFIRMASI RILIS SELURUH SLIP GAJI */}
+      <Modal
+        isOpen={isPublishModalOpen}
+        onClose={() => !publishingAll && setIsPublishModalOpen(false)}
+        title="Konfirmasi Penerbitan Seluruh Slip Gaji"
+        size="md"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-3.5 bg-primary-soft/40 border border-primary/20 rounded-lg space-y-1.5">
+            <p className="font-semibold text-text-primary text-sm flex items-center gap-2">
+              <Send className="w-4 h-4 text-primary" />
+              Rilis Slip Gaji ke Dashboard Seluruh Karyawan
+            </p>
+            <p className="text-text-secondary leading-relaxed">
+              Anda akan menerbitkan slip gaji resmi untuk <strong>{summary?.period_label}</strong> kepada seluruh <strong>{summary?.active_employees_count} karyawan aktif</strong>.
+            </p>
+          </div>
+
+          <div className="bg-subtle p-3 rounded-md border border-border-default space-y-1.5 text-text-secondary">
+            <div className="flex justify-between">
+              <span>Periode Cut-Off:</span>
+              <span className="font-medium text-text-primary">{summary?.cutoff_start_date} s/d {summary?.cutoff_end_date}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Total Karyawan Penerima:</span>
+              <span className="font-medium text-text-primary">{summary?.active_employees_count} Orang</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Total Gaji Bersih:</span>
+              <span className="font-semibold text-emerald-600">{formatRupiah(summary?.total_monthly_payroll || 0)}</span>
+            </div>
+          </div>
+
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-900 leading-snug">
+            <strong>Catatan Operasional:</strong> Dokumen slip gaji akan langsung dapat diakses dan diunduh oleh karyawan di Dashboard masing-masing. Sistem juga akan mengirimkan notifikasi in-app otomatis ke setiap akun karyawan.
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-border-default">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsPublishModalOpen(false)}
+              disabled={publishingAll}
+              className="h-9 px-4 text-xs font-medium"
+            >
+              Batal
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={publishingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              onClick={handlePublishAll}
+              disabled={publishingAll}
+              className="h-9 px-4 text-xs font-medium"
+            >
+              {publishingAll ? 'Sedang Menerbitkan...' : 'Ya, Rilis & Kirim Sekarang'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* MODAL SLIP GAJI KARYAWAN & DOWNLOAD / CETAK */}
       <Modal
         isOpen={isSlipModalOpen}
@@ -1040,6 +964,48 @@ export function Payroll() {
       >
         {selectedSlipEmployee && (
           <div className="space-y-4 text-xs">
+            {/* Status Publikasi ke Dashboard */}
+            {selectedSlipEmployee.is_published ? (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-900">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  Slip gaji ini sudah terkirim resmi ke Dashboard karyawan {selectedSlipEmployee.published_at ? `(${selectedSlipEmployee.published_at})` : ''}.
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  leftIcon={<RotateCcw className="w-3.5 h-3.5 text-rose-600" />}
+                  onClick={() => {
+                    handleUnpublish(selectedSlipEmployee.id);
+                    setIsSlipModalOpen(false);
+                  }}
+                  className="h-7 text-xs text-rose-600 border-rose-200 hover:bg-rose-50 font-medium"
+                >
+                  Tarik Slip
+                </Button>
+              </div>
+            ) : (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                  Slip gaji ini masih berstatus Draft dan belum dapat dilihat oleh karyawan di Dashboard.
+                </span>
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  leftIcon={publishingSingleId === selectedSlipEmployee.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  onClick={() => {
+                    handlePublishSingle(selectedSlipEmployee);
+                    setIsSlipModalOpen(false);
+                  }}
+                  disabled={publishingSingleId === selectedSlipEmployee.id}
+                  className="h-7 text-xs font-medium"
+                >
+                  Kirim ke Dashboard
+                </Button>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-subtle border border-border-default">
               <div>
                 <p className="font-semibold text-text-primary">
