@@ -141,16 +141,21 @@ export function MyAttendance() {
   };
 
   const stopScanner = async () => {
-    if (scannerRef.current) {
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
+    if (scanner) {
       try {
-        if (scannerRef.current.isScanning) {
-          await scannerRef.current.stop();
+        if (scanner.isScanning) {
+          await scanner.stop();
         }
-        scannerRef.current.clear();
       } catch (e) {
-        // Abaikan error saat stop
+        // ignore
       }
-      scannerRef.current = null;
+      try {
+        scanner.clear();
+      } catch (e) {
+        // ignore
+      }
     }
   };
 
@@ -224,27 +229,37 @@ export function MyAttendance() {
             aspectRatio: 1.0
           };
 
-          // Prioritaskan kamera belakang (environment), fallback ke kamera depan/webcam (user)
-          try {
-            await html5QrCode.start(
-              { facingMode: 'environment' },
-              config,
-              (decodedText) => {
-                if (!isCancelled) handleScanSuccess(decodedText);
-              },
-              () => {}
-            );
-          } catch (firstErr) {
-            console.warn('Kamera belakang tidak tersedia, mencoba kamera depan/webcam:', firstErr);
-            await html5QrCode.start(
-              { facingMode: 'user' },
-              config,
-              (decodedText) => {
-                if (!isCancelled) handleScanSuccess(decodedText);
-              },
-              () => {}
-            );
+          // Ambil daftar kamera yang benar-benar ada di perangkat
+          const devices = await Html5Qrcode.getCameras().catch(() => []);
+          if (!devices || devices.length === 0) {
+            if (!isCancelled) {
+              setIsCameraStarting(false);
+              setCameraError('Tidak ada perangkat kamera yang terdeteksi atau izin kamera belum diberikan di browser.');
+            }
+            return;
           }
+
+          // Prioritaskan kamera belakang jika di smartphone, atau kamera pertama (webcam) jika di laptop
+          let chosenCameraId = devices[0].id;
+          const backCamera = devices.find((d) => 
+            d.label.toLowerCase().includes('back') || 
+            d.label.toLowerCase().includes('belakang') ||
+            d.label.toLowerCase().includes('environment') ||
+            d.label.toLowerCase().includes('rear')
+          );
+          if (backCamera) {
+            chosenCameraId = backCamera.id;
+          }
+
+          // Nyalakan kamera dengan ID perangkat yang valid
+          await html5QrCode.start(
+            chosenCameraId,
+            config,
+            (decodedText) => {
+              if (!isCancelled) handleScanSuccess(decodedText);
+            },
+            () => {}
+          );
 
           if (!isCancelled) {
             setIsCameraStarting(false);
