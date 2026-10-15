@@ -13,12 +13,12 @@ if [ -f backend/.env ]; then
 fi
 
 # 2. Build image tunggal (React + Laravel + Nginx + Worker)
-echo ">> Membangun All-in-One Docker container..."
-docker compose build hris
+echo ">> Membangun All-in-One Docker container (fresh build)..."
+docker compose build --no-cache hris
 
-# 3. Jalankan container
+# 3. Jalankan container dengan container yang dipastikan fresh
 echo ">> Menjalankan service..."
-docker compose up -d
+docker compose up -d --force-recreate hris
 
 # 4. Tunggu database MySQL benar-benar siap menerima koneksi dari Laravel
 echo ">> Menunggu database siap..."

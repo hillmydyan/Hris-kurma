@@ -23,6 +23,38 @@ import {
 import { Html5Qrcode } from 'html5-qrcode';
 import api from '../../lib/api';
 
+// Komponen jam terisolasi agar detak detik tidak me-render ulang seluruh halaman & scanner
+function LiveClock() {
+  const [currentTime, setCurrentTime] = useState<string>('');
+  const [currentDate, setCurrentDate] = useState<string>('');
+
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      setCurrentTime(`${hours}:${minutes}:${seconds} WIB`);
+      setCurrentDate(
+        now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })
+      );
+    };
+
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2">
+      <Clock className="w-4 h-4 text-text-muted shrink-0" />
+      <span>
+        {currentDate || 'Hari ini'} · <strong className="text-text-primary font-semibold tabular-nums">{currentTime || '08:00:00 WIB'}</strong>
+      </span>
+    </div>
+  );
+}
+
 export function MyAttendance() {
   const [isCorrectionModalOpen, setCorrectionModalOpen] = useState(false);
   const [isScanModalOpen, setScanModalOpen] = useState(false);
@@ -35,10 +67,6 @@ export function MyAttendance() {
   const [attendances, setAttendances] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Live Digital Clock
-  const [currentTime, setCurrentTime] = useState<string>('');
-  const [currentDate, setCurrentDate] = useState<string>('');
-
   const [correctionData, setCorrectionData] = useState({
     date: '',
     time_in: '',
@@ -46,25 +74,6 @@ export function MyAttendance() {
     reason: ''
   });
   const [submittingCorrection, setSubmittingCorrection] = useState(false);
-
-  useEffect(() => {
-    const updateClock = () => {
-      const now = new Date();
-      // Pastikan format pemisah titik dua konsisten (HH:mm:ss WIB)
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
-      setCurrentTime(`${hours}:${minutes}:${seconds} WIB`);
-
-      setCurrentDate(
-        now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })
-      );
-    };
-
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     fetchAttendances();
@@ -367,12 +376,7 @@ export function MyAttendance() {
 
         {/* Baris Info: Tanggal · Jam Berjalan · Jadwal Kantor */}
         <div className="p-3 rounded-lg bg-surface border border-border-default flex items-center justify-between flex-wrap gap-2 text-xs text-text-secondary">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-text-muted shrink-0" />
-            <span>
-              {currentDate || 'Hari ini'} · <strong className="text-text-primary font-semibold tabular-nums">{currentTime || '08:00:00 WIB'}</strong>
-            </span>
-          </div>
+          <LiveClock />
           <span className="text-text-muted">
             Jam kantor <span className="font-medium text-text-primary">08:00–16:00 WIB</span>
           </span>
@@ -758,7 +762,7 @@ export function MyAttendance() {
       >
         <div className="flex flex-col items-center py-2">
           {/* Tampilan Saat Hasil Scan Tersedia */}
-          {scanResult ? (
+          {scanResult && (
             <div className="w-full max-w-sm text-center py-4 space-y-4 animate-in fade-in">
               <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-subtle border border-border-default">
                 {scanResult.type === 'success' ? (
@@ -810,94 +814,98 @@ export function MyAttendance() {
                 </Button>
               </div>
             </div>
-          ) : (
-            /* Tampilan Scanner Kamera Aktif */
-            <div className="w-full flex flex-col items-center">
-              <p className="text-xs text-text-secondary text-center mb-3">
-                Arahkan kamera ke QR di layar kantor
-              </p>
+          )}
 
-              {cameraError ? (
-                <div className="w-full max-w-xs p-4 rounded-xl bg-danger-subtle border border-danger-subtle text-center space-y-3">
-                  <AlertCircle className="w-8 h-8 text-danger-fg mx-auto" />
-                  <p className="text-xs text-danger-fg font-medium leading-relaxed">
-                    {cameraError}
-                  </p>
-                  <div className="pt-2 flex flex-col gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setCameraError(null);
-                        setIsCameraStarting(true);
-                      }}
-                      leftIcon={<RefreshCw className="w-4 h-4" />}
-                      className="w-full"
-                    >
-                      Coba Buka Kamera Lagi
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-xs text-primary font-medium hover:underline inline-flex items-center justify-center gap-1.5 py-1"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      Atau upload foto/screenshot QR
-                    </button>
-                  </div>
+          {/* Tampilan Scanner Kamera (TIDAK PERNAH DI-UNMOUNT AGAR ZERO COLLISION DENGAN REACT) */}
+          <div className={`w-full flex flex-col items-center ${scanResult ? 'hidden' : 'block'}`}>
+            <p className="text-xs text-text-secondary text-center mb-3">
+              Arahkan kamera ke QR di layar kantor
+            </p>
+
+            {cameraError && (
+              <div className="w-full max-w-xs p-4 mb-3 rounded-xl bg-danger-subtle border border-danger-subtle text-center space-y-3">
+                <AlertCircle className="w-8 h-8 text-danger-fg mx-auto" />
+                <p className="text-xs text-danger-fg font-medium leading-relaxed">
+                  {cameraError}
+                </p>
+                <div className="pt-2 flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCameraError(null);
+                      setIsCameraStarting(true);
+                    }}
+                    leftIcon={<RefreshCw className="w-4 h-4" />}
+                    className="w-full"
+                  >
+                    Coba Buka Kamera Lagi
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs text-primary font-medium hover:underline inline-flex items-center justify-center gap-1.5 py-1"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Atau upload foto/screenshot QR
+                  </button>
                 </div>
-              ) : (
-                <div className="w-full max-w-[280px] sm:max-w-xs flex flex-col items-center">
-                  <div className="relative w-full overflow-hidden rounded-xl border border-border-default shadow-xs bg-slate-900 min-h-[260px] flex items-center justify-center">
-                    {/* Wadah murni untuk video Html5Qrcode - TANPA ANAK REACT AGAR TIDAK BENTROK */}
-                    <div id="reader" className="w-full h-full min-h-[260px]" />
+              </div>
+            )}
 
-                    {/* Overlay React terpisah (sibling) di atas reader */}
-                    {isCameraStarting && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-center p-4 z-10 pointer-events-none">
-                        <Camera className="w-6 h-6 text-slate-400 animate-pulse mb-2" />
-                        <span className="text-xs text-slate-200 font-medium">Membuka kamera...</span>
-                        <span className="text-[11px] text-slate-400 mt-1">Pastikan klik "Izinkan" jika browser meminta izin</span>
-                      </div>
-                    )}
+            <div className={`w-full max-w-[280px] sm:max-w-xs flex flex-col items-center ${cameraError ? 'hidden' : 'block'}`}>
+              <div className="relative w-full overflow-hidden rounded-xl border border-border-default shadow-xs bg-slate-900 min-h-[260px] flex items-center justify-center">
+                {/* WADAH KHUSUS HTML5-QRCODE DENGAN dangerouslySetInnerHTML AGAR REACT TIDAK PERNAH MENYENTUH ANAK DOM-NYA */}
+                <div 
+                  id="reader" 
+                  className="w-full h-full min-h-[260px]" 
+                  dangerouslySetInnerHTML={{ __html: '' }}
+                />
+
+                {/* Overlay React terpisah (sibling) di atas reader */}
+                {isCameraStarting && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-center p-4 z-10 pointer-events-none">
+                    <Camera className="w-6 h-6 text-slate-400 animate-pulse mb-2" />
+                    <span className="text-xs text-slate-200 font-medium">Membuka kamera...</span>
+                    <span className="text-[11px] text-slate-400 mt-1">Pastikan klik "Izinkan" jika browser meminta izin</span>
                   </div>
+                )}
+              </div>
 
-                  <div className="mt-3 text-center">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-xs text-text-secondary hover:text-primary transition-colors inline-flex items-center gap-1.5"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      Bermasalah dengan kamera? Unggah foto QR
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileScan}
-              />
-
-              <div className="mt-4 pt-3 border-t border-border-default w-full text-center">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    stopScanner();
-                    setScanModalOpen(false);
-                  }}
-                  className="w-full sm:w-auto"
+              <div className="mt-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs text-text-secondary hover:text-primary transition-colors inline-flex items-center gap-1.5"
                 >
-                  Batal
-                </Button>
+                  <Upload className="w-3.5 h-3.5" />
+                  Bermasalah dengan kamera? Unggah foto QR
+                </button>
               </div>
             </div>
-          )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileScan}
+            />
+
+            <div className="mt-4 pt-3 border-t border-border-default w-full text-center">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  stopScanner();
+                  setScanModalOpen(false);
+                }}
+                className="w-full sm:w-auto"
+              >
+                Batal
+              </Button>
+            </div>
+          </div>
         </div>
       </Modal>
     </div>
