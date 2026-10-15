@@ -45,7 +45,7 @@ function ManagementRoute({ children }: { children: React.ReactNode }) {
 function AdminIndexRoute() {
   const { user } = useAuth();
   if (isManagerOnly(user)) {
-    return <Navigate to="/admin/daily-reports/review" replace />;
+    return <Navigate to="/admin/absensi/live" replace />;
   }
   return <Dashboard />;
 }
@@ -54,7 +54,7 @@ function HrOnlyRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
   if (isManagerOnly(user)) {
-    return <Navigate to="/admin/daily-reports/review" replace />;
+    return <Navigate to="/admin/absensi/live" replace />;
   }
   return <>{children}</>;
 }
@@ -84,9 +84,9 @@ function App() {
             {/* === MANAGEMENT BACKEND - Restricted to Authorized Managers/HR/Admin === */}
             <Route path="admin" element={<ManagementRoute><Outlet /></ManagementRoute>}>
               <Route index element={<AdminIndexRoute />} />
+              <Route path="absensi/live" element={<AdminAttendance />} />
+              <Route path="absensi/qr-screen" element={<QrScreen />} />
               <Route path="daily-reports/review" element={<DailyReportReview />} />
-              <Route path="absensi/live" element={<HrOnlyRoute><AdminAttendance /></HrOnlyRoute>} />
-              <Route path="absensi/qr-screen" element={<HrOnlyRoute><QrScreen /></HrOnlyRoute>} />
               <Route path="roster-weekend" element={<HrOnlyRoute><WeekendRoster /></HrOnlyRoute>} />
               <Route path="persetujuan" element={<HrOnlyRoute><Approval /></HrOnlyRoute>} />
               <Route path="karyawan">

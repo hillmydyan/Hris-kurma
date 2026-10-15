@@ -66,7 +66,7 @@ export function Sidebar({ isOpen, onClose, isCompact, toggleCompact }: SidebarPr
     switchPortal(mode);
     if (mode === 'management') {
       if (isManager) {
-        navigate('/admin/daily-reports/review');
+        navigate('/admin/absensi/live');
       } else {
         navigate('/admin');
       }
@@ -91,6 +91,8 @@ export function Sidebar({ isOpen, onClose, isCompact, toggleCompact }: SidebarPr
         { name: 'Pengajuan Izin', path: '/cuti', icon: <Calendar /> },
         { name: 'Daily Report', path: '/daily-report', icon: <FileSpreadsheet /> },
         ...(isManager ? [
+          { name: 'Monitor Absensi Live', path: '/admin/absensi/live', icon: <Tv />, badge: 'Live' },
+          { name: 'Layar QR Kantor', path: '/admin/absensi/qr-screen', icon: <QrCode /> },
           { name: 'Monitoring Daily Report', path: '/admin/daily-reports/review', icon: <FileSpreadsheet />, badge: 'Tim' }
         ] : []),
         { name: 'Notifikasi & Info', path: '/notifikasi', icon: <Bell /> },
@@ -98,11 +100,13 @@ export function Sidebar({ isOpen, onClose, isCompact, toggleCompact }: SidebarPr
     }
   ];
 
-  // Management Menus for Manager Only (Restricted to Daily Report Monitoring ONLY)
+  // Management Menus for Manager Only (Live Absensi, Layar QR Kantor, & Catatan Daily Report)
   const managerMenuGroups: SidebarMenuGroup[] = [
     {
-      title: 'Monitoring Kinerja',
+      title: 'Operasional & Live',
       items: [
+        { name: 'Monitor Absensi Live', path: '/admin/absensi/live', icon: <Tv /> },
+        { name: 'Layar QR Kantor', path: '/admin/absensi/qr-screen', icon: <QrCode /> },
         { name: 'Catatan Daily Report', path: '/admin/daily-reports/review', icon: <FileSpreadsheet /> },
       ]
     }

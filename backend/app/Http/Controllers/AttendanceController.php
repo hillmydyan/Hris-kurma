@@ -17,8 +17,11 @@ class AttendanceController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $isManagementOrManager = $user->can('attendance.view_all')
+            || $user->can('attendance.view_team')
+            || $user->hasAnyRole(['super-admin', 'owner', 'direksi', 'hr-manager', 'hr', 'dept-head', 'manager']);
 
-        if ($user->can('attendance.view_all')) {
+        if ($isManagementOrManager) {
             $query = Attendance::with(['employee.currentAssignment.department', 'employee.currentAssignment.jobPosition'])->latest('date');
 
             if ($request->filled('date')) {
@@ -29,8 +32,17 @@ class AttendanceController extends Controller
                     $q->where('department_id', $request->department_id);
                 });
             }
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->whereHas('employee', function ($q) use ($search) {
+                    $q->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('employee_id', 'like', "%{$search}%");
+                });
+            }
 
-            return response()->json($query->paginate(20));
+            $perPage = $request->input('per_page', 50);
+            return response()->json($query->paginate($perPage));
         }
 
         $employee = $user->employee;

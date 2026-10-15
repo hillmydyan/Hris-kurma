@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { QRCodeSVG } from 'qrcode.react';
-import { RefreshCw, Download, Search, Filter, Loader2, Printer, ShieldCheck, CheckCircle2, AlertTriangle, Building, Sparkles, Calendar, Tv } from 'lucide-react';
+import { RefreshCw, Download, Search, Filter, Loader2, Printer, ShieldCheck, CheckCircle2, AlertTriangle, Building, Sparkles, Calendar, Tv, RotateCcw } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { Table, TableHeader, TableRow, TableHead, TableCell } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
@@ -11,11 +12,16 @@ import { Modal } from '../../components/ui/Modal';
 import api from '../../lib/api';
 
 export function AdminAttendance() {
+  const navigate = useNavigate();
   const [qrToken, setQrToken] = useState('');
   const [date, setDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [attendances, setAttendances] = useState<any[]>([]);
   const [loadingAttendances, setLoadingAttendances] = useState(true);
+
+  // States untuk Filter & Pencarian
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDate, setFilterDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // States untuk Unduh QR (Harian Khusus Hari Ini / Dinamis)
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
@@ -147,10 +153,16 @@ export function AdminAttendance() {
     }
   };
 
-  const fetchAttendances = async () => {
+  const fetchAttendances = async (dateVal?: string, searchVal?: string) => {
     setLoadingAttendances(true);
     try {
-      const response = await api.get('/attendance');
+      const activeDate = dateVal !== undefined ? dateVal : filterDate;
+      const activeSearch = searchVal !== undefined ? searchVal : searchTerm;
+      const params: any = {};
+      if (activeDate) params.date = activeDate;
+      if (activeSearch) params.search = activeSearch;
+
+      const response = await api.get('/attendance', { params });
       const raw = response.data;
       const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
       setAttendances(list);
@@ -166,12 +178,33 @@ export function AdminAttendance() {
     fetchAttendances();
   }, []);
 
+  const handleFilterSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    fetchAttendances(filterDate, searchTerm);
+  };
+
+  const handleResetFilter = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    setFilterDate(todayStr);
+    setSearchTerm('');
+    fetchAttendances(todayStr, '');
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="h1 text-text-primary">Manajemen Absensi</h1>
-          <p className="text-body text-text-secondary">Kelola absensi karyawan dan generate QR Code.</p>
+          <h1 className="h1 text-text-primary">Monitor Absensi Live</h1>
+          <p className="text-body text-text-secondary">Pantau presensi tim & karyawan secara real-time dan kelola QR Code kantor.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="secondary" 
+            leftIcon={<Tv className="w-4 h-4" />}
+            onClick={() => navigate('/admin/absensi/qr-screen')}
+          >
+            Layar QR Kantor (TV)
+          </Button>
         </div>
       </div>
 
@@ -223,7 +256,17 @@ export function AdminAttendance() {
               <li><strong>Absen Sore (Pulang):</strong> Karyawan melakukan scan saat jam kerja selesai (Mulai pukul 16:00 WIB).</li>
               <li>Sistem secara otomatis mencatat waktu absensi pagi, sore, dan menghitung durasi kerja harian.</li>
             </ol>
-            <div className="p-4 bg-info-subtle border border-info-border rounded-md mt-6">
+            <div className="pt-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                leftIcon={<Tv className="w-4 h-4" />}
+                onClick={() => navigate('/admin/absensi/qr-screen')}
+              >
+                Buka Terminal Layar Penuh (TV)
+              </Button>
+            </div>
+            <div className="p-4 bg-info-subtle border border-info-border rounded-md mt-4">
               <p className="text-info-fg text-label font-medium mb-1">Catatan Keamanan Dynamic QR</p>
               <p className="text-sm text-info-fg/80">
                 QR Code berputar secara berkala untuk mencegah screenshot atau titip absen dari luar kantor.
@@ -238,21 +281,33 @@ export function AdminAttendance() {
           <CardTitle>Log Absensi Pagi & Sore Hari Ini</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="p-4 border-b border-border-default flex flex-col sm:flex-row justify-between gap-4 bg-subtle/50">
+          <form onSubmit={handleFilterSubmit} className="p-4 border-b border-border-default flex flex-col sm:flex-row justify-between gap-4 bg-subtle/50">
             <div className="flex-1 max-w-md relative">
               <Input 
                 label="" 
-                placeholder="Cari nama karyawan..." 
+                placeholder="Cari nama atau NIK karyawan..." 
                 leftIcon={<Search className="w-5 h-5" />} 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="flex gap-2">
-              <Input type="date" label="" defaultValue={new Date().toISOString().split('T')[0]} />
-              <Button variant="secondary" leftIcon={<Filter className="w-4 h-4" />}>
+            <div className="flex items-center gap-2">
+              <Input 
+                type="date" 
+                label="" 
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+              />
+              <Button type="submit" variant="secondary" leftIcon={<Filter className="w-4 h-4" />} disabled={loadingAttendances}>
                 Filter
               </Button>
+              {(filterDate !== new Date().toISOString().split('T')[0] || searchTerm) && (
+                <Button type="button" variant="text" leftIcon={<RotateCcw className="w-4 h-4" />} onClick={handleResetFilter}>
+                  Reset
+                </Button>
+              )}
             </div>
-          </div>
+          </form>
 
           <Table className="border-0 shadow-none rounded-none">
             <TableHeader>

@@ -31,10 +31,10 @@ export function RbacManagement() {
     {
       name: 'dept-head',
       label: 'Manager Departemen (Dept Head)',
-      description: 'Akses User Portal saja: review daily report tim dan perizinan tim. Tidak memiliki akses ke Management Backend.',
+      description: 'Akses Portal Operasional: Monitoring absensi live tim/kantor, Layar QR kantor, dan review daily report tim.',
       usersCount: 3,
-      badge: 'User Portal Only',
-      color: 'amber',
+      badge: 'Operasional & Tim',
+      color: 'indigo',
     },
     {
       name: 'finance-staff',

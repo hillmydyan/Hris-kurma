@@ -128,12 +128,13 @@ class RoleAndPermissionSeeder extends Seeder
             'system.settings', 'system.audit_logs',
         ]);
 
-        // 3. Dept Head / Manager (User Portal Only - NO portal.backend_access)
+        // 3. Dept Head / Manager (Management Backend: Live Absensi, Layar QR, & Daily Report Tim)
         $deptHead = Role::findByName('dept-head', 'web');
         $deptHead->syncPermissions([
+            'portal.backend_access',
             'daily_report.view_self', 'daily_report.create', 'daily_report.edit', 'daily_report.submit',
             'daily_report.view_team', 'daily_report.review', 'daily_report.export',
-            'attendance.scan_qr', 'attendance.view_self', 'attendance.view_team',
+            'attendance.scan_qr', 'attendance.view_self', 'attendance.view_team', 'attendance.view_all', 'attendance.generate_qr',
             'leave.request', 'leave.view_self', 'leave.view_team', 'leave.approve_manager',
             'employee.view_self', 'employee.view_directory',
             'organization.view',
