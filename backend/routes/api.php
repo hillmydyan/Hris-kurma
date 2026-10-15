@@ -82,6 +82,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('audit-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'index']);
     Route::apiResource('attachments', AttachmentController::class);
     
+    Route::get('attendance/my-summary', [\App\Http\Controllers\AttendanceController::class, 'mySummary']);
     Route::get('attendance/qr-code', [\App\Http\Controllers\AttendanceController::class, 'getQrCode']);
     Route::get('attendance/static-qr', [\App\Http\Controllers\AttendanceController::class, 'getStaticQrCode']);
     Route::get('attendance/daily-qr', [\App\Http\Controllers\AttendanceController::class, 'getStaticQrCode']);

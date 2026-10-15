@@ -67,6 +67,7 @@ export function Dashboard() {
 
   // State untuk data Presensi & Daily Report Hari Ini (User Mode)
   const [todayAttendance, setTodayAttendance] = useState<any>(null);
+  const [attendanceSummary, setAttendanceSummary] = useState<any>(null);
   const [todayDailyReport, setTodayDailyReport] = useState<any>(null);
   const [openPolicyIndex, setOpenPolicyIndex] = useState<number | null>(null);
 
@@ -105,8 +106,9 @@ export function Dashboard() {
         api.get('/workday-swaps'),
         api.get('/weekend-schedules'),
         api.get('/attendance'),
+        api.get('/attendance/my-summary'),
         api.get(`/daily-reports/today?date=${todayStr}`)
-      ]).then(([leavesRes, swapsRes, rosterRes, attRes, dailyRes]) => {
+      ]).then(([leavesRes, swapsRes, rosterRes, attRes, mySummaryRes, dailyRes]) => {
         if (leavesRes.status === 'fulfilled') {
           const raw = leavesRes.value.data;
           const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
@@ -125,6 +127,13 @@ export function Dashboard() {
             setDynamicWeekendSchedule(mySchedule);
           }
         }
+        if (mySummaryRes.status === 'fulfilled' && mySummaryRes.value.data) {
+          const summary = mySummaryRes.value.data;
+          setAttendanceSummary(summary);
+          if (summary.today_attendance) {
+            setTodayAttendance(summary.today_attendance);
+          }
+        }
         if (attRes.status === 'fulfilled') {
           const raw = attRes.value.data;
           const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
@@ -134,6 +143,22 @@ export function Dashboard() {
           if (myAtt) {
             setTodayAttendance(myAtt);
           }
+          // Fallback ringkasan jika endpoint my-summary belum merespon
+          setAttendanceSummary((prev: any) => {
+            if (prev) return prev;
+            const currentMonthPrefix = todayStr.slice(0, 7);
+            const myAttendancesMonth = list.filter((a: any) => 
+              (!a.employee_id || a.employee_id === user?.employee?.id) &&
+              a.date && a.date.startsWith(currentMonthPrefix) &&
+              (a.status === 'present' || a.status === 'late')
+            );
+            const presentCount = myAttendancesMonth.length;
+            return {
+              present_days: presentCount,
+              standard_working_days: 26,
+              attendance_rate: Math.round((presentCount / 26) * 100),
+            };
+          });
         }
         if (dailyRes.status === 'fulfilled') {
           setTodayDailyReport(dailyRes.value.data);
@@ -624,14 +649,20 @@ export function Dashboard() {
                 </div>
                 <div>
                   <div className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight tabular-nums">
-                    18 <span className="text-xs sm:text-sm font-normal text-text-secondary">dari 22 hari kerja</span>
+                    {attendanceSummary?.present_days ?? 0}{' '}
+                    <span className="text-xs sm:text-sm font-normal text-text-secondary">
+                      dari {attendanceSummary?.standard_working_days ?? 26} hari kerja
+                    </span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                    <div className="bg-primary h-1.5 rounded-full" style={{ width: '82%' }} />
+                    <div 
+                      className="bg-primary h-1.5 rounded-full transition-all duration-500" 
+                      style={{ width: `${Math.min(100, Math.max(0, attendanceSummary?.attendance_rate ?? 0))}%` }} 
+                    />
                   </div>
                 </div>
                 <div className="text-[11px] sm:text-xs text-text-muted truncate">
-                  82% tingkat kehadiran bulan ini
+                  {attendanceSummary?.attendance_rate ?? 0}% tingkat kehadiran bulan ini
                 </div>
               </CardContent>
             </Card>

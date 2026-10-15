@@ -43,6 +43,60 @@ class AttendanceController extends Controller
     }
 
     /**
+     * Ringkasan kehadiran pribadi untuk dashboard karyawan di bulan berjalan.
+     * Basis standar kerja Kurma Group: 26 hari kerja per bulan.
+     */
+    public function mySummary(Request $request)
+    {
+        $user = $request->user();
+        $employee = $user->employee;
+
+        $standardWorkingDays = 26;
+
+        if (!$employee) {
+            return response()->json([
+                'present_days' => 0,
+                'standard_working_days' => $standardWorkingDays,
+                'attendance_rate' => 0,
+                'on_time_days' => 0,
+                'late_days' => 0,
+                'today_attendance' => null,
+            ]);
+        }
+
+        $today = Carbon::today();
+        $todayStr = $today->toDateString();
+        $startOfMonth = $today->copy()->startOfMonth()->toDateString();
+        $endOfMonth = $today->copy()->endOfMonth()->toDateString();
+
+        $monthAttendances = $employee->attendances()
+            ->whereBetween('date', [$startOfMonth, $endOfMonth])
+            ->get();
+
+        $presentDays = $monthAttendances->whereIn('status', ['present', 'late'])->count();
+        $lateDays = $monthAttendances->where('status', 'late')->count();
+        $onTimeDays = $monthAttendances->where('status', 'present')->count();
+
+        $attendanceRate = $standardWorkingDays > 0 
+            ? round(($presentDays / $standardWorkingDays) * 100) 
+            : 0;
+
+        $todayAttendance = $employee->attendances()->where('date', $todayStr)->first();
+
+        return response()->json([
+            'month' => $today->translatedFormat('F Y'),
+            'start_date' => $startOfMonth,
+            'end_date' => $endOfMonth,
+            'present_days' => $presentDays,
+            'standard_working_days' => $standardWorkingDays,
+            'attendance_rate' => $attendanceRate,
+            'on_time_days' => $onTimeDays,
+            'late_days' => $lateDays,
+            'today_attendance' => $todayAttendance,
+        ]);
+    }
+
+    /**
      * Generate rotating Dynamic QR code for office TV / screen display.
      * Rotating every 45-60 seconds to prevent photo/screenshot fraud.
      */
