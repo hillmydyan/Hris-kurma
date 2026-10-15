@@ -11,8 +11,8 @@ services:
     container_name: hris-app
     restart: unless-stopped
     ports:
-      # Terkunci ke 127.0.0.1 (hanya bisa diakses oleh Cloudflare Tunnel lokal)
-      - "127.0.0.1:${HRIS_PORT:-8085}:80"
+      # Bisa diakses via http://IP_VPS:8085 langsung atau via Cloudflare Tunnel
+      - "${HRIS_PORT:-8085}:80"
     volumes:
       # Volume untuk file upload (foto absensi, avatar, excel, dokumen) agar tetap tersimpan aman
       - ./backend/storage:/var/www/backend/storage
