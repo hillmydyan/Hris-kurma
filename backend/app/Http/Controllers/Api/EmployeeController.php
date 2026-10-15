@@ -21,40 +21,69 @@ class EmployeeController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'employee_id' => 'required|string|unique:employees,employee_id',
-            'first_name' => 'required|string',
-            'last_name' => 'nullable|string',
-            'email' => 'required|email|unique:employees,email',
-            'phone' => 'nullable|string',
+            'employee_id' => 'nullable|string|unique:employees,employee_id',
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'nullable|string|max:100',
+            'email' => 'required|email|unique:employees,email|unique:users,email',
+            'phone' => 'nullable|string|max:30',
+            'nik' => 'nullable|string|max:30',
+            'address' => 'nullable|string',
+            'birth_date' => 'nullable|date',
+            'gender' => 'nullable|string|in:male,female',
+            'employment_type' => 'nullable|string',
+            'weekend_pattern' => 'nullable|string|in:saturday_fixed,sunday_fixed,rotating',
+            'basic_salary' => 'nullable|numeric|min:0',
+            'allowances' => 'nullable|numeric|min:0',
+            'bank_name' => 'nullable|string|max:50',
+            'bank_account_number' => 'nullable|string|max:50',
+            'bank_account_holder' => 'nullable|string|max:100',
             'join_date' => 'required|date',
-            'create_user' => 'boolean',
+            'create_user' => 'nullable|boolean',
             'role' => 'nullable|string',
             'department_id' => 'required|exists:departments,id',
             'job_position_id' => 'required|exists:job_positions,id'
         ]);
 
+        if (empty($validated['employee_id'])) {
+            $nextId = (Employee::max('id') ?? 0) + 1;
+            $validated['employee_id'] = 'EMP-' . str_pad((string)$nextId, 3, '0', STR_PAD_LEFT);
+        }
+
+        $validated['basic_salary'] = $validated['basic_salary'] ?? 0;
+        $validated['allowances'] = 0; // Tunjangan ditiadakan, diganti Uang Makan Rp 11.000/hari
+        $validated['status'] = $validated['status'] ?? 'active';
+        $validated['employment_type'] = $validated['employment_type'] ?? 'permanent';
+        $validated['bank_name'] = $validated['bank_name'] ?? 'BCA';
+
         DB::beginTransaction();
         try {
+            $fullName = trim($validated['first_name'] . ' ' . ($validated['last_name'] ?? ''));
+            $validated['bank_account_holder'] = $validated['bank_account_holder'] ?: $fullName;
+
             $userId = null;
-            if (!empty($validated['create_user'])) {
-                $user = User::create([
-                    'name' => $validated['first_name'] . ' ' . ($validated['last_name'] ?? ''),
-                    'email' => $validated['email'],
-                    'password' => Hash::make('password123'), // Default password
-                ]);
-                if (!empty($validated['role'])) {
-                    $user->assignRole($validated['role']);
-                }
-                $userId = $user->id;
-            }
+            // Always create linked User account so employee can log in
+            $user = User::create([
+                'name' => $fullName,
+                'email' => $validated['email'],
+                'password' => Hash::make('password123'),
+                'is_active' => true,
+            ]);
+
+            $assignedRole = !empty($validated['role']) ? $validated['role'] : 'employee';
+            $user->assignRole($assignedRole);
+            $userId = $user->id;
 
             $employee = Employee::create(array_merge($validated, ['user_id' => $userId]));
             
-            // Create default assignment
+            // Dynamic work location fallback
+            $defaultLocation = \App\Models\WorkLocation::first();
+            $locationId = $defaultLocation ? $defaultLocation->id : 1;
+
+            // Create primary assignment
             $employee->assignments()->create([
                 'department_id' => $validated['department_id'],
                 'job_position_id' => $validated['job_position_id'],
-                'work_location_id' => 1, // Default to first location for now
+                'work_location_id' => $locationId,
                 'start_date' => $validated['join_date'],
                 'is_primary' => true,
             ]);
@@ -63,7 +92,7 @@ class EmployeeController extends Controller
             return response()->json($employee->load(['user', 'currentAssignment.department', 'currentAssignment.jobPosition']), 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json(['error' => 'Gagal menambahkan karyawan: ' . $e->getMessage()], 500);
         }
     }
 
@@ -89,6 +118,17 @@ class EmployeeController extends Controller
             'last_name' => 'nullable|string',
             'email' => 'sometimes|email|unique:employees,email,' . $employee->id,
             'phone' => 'nullable|string',
+            'nik' => 'nullable|string',
+            'address' => 'nullable|string',
+            'birth_date' => 'nullable|date',
+            'gender' => 'nullable|string',
+            'employment_type' => 'nullable|string',
+            'weekend_pattern' => 'nullable|string|in:saturday_fixed,sunday_fixed,rotating',
+            'basic_salary' => 'nullable|numeric|min:0',
+            'allowances' => 'nullable|numeric|min:0',
+            'bank_name' => 'nullable|string',
+            'bank_account_number' => 'nullable|string',
+            'bank_account_holder' => 'nullable|string',
             'join_date' => 'sometimes|date',
             'resign_date' => 'nullable|date',
             'status' => 'sometimes|string|in:active,inactive',
@@ -185,19 +225,48 @@ class EmployeeController extends Controller
         return response()->json(['message' => 'Document deleted']);
     }
 
-    public function export()
+    public function export(Request $request)
     {
-        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\EmployeesExport, 'employees.xlsx');
+        $format = strtolower($request->query('format', 'xlsx'));
+        $fileName = 'Data_Karyawan_KurmaGroup_' . date('Y-m-d') . '.' . ($format === 'csv' ? 'csv' : 'xlsx');
+
+        if ($format === 'csv') {
+            return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\EmployeesExport, $fileName, \Maatwebsite\Excel\Excel::CSV);
+        }
+
+        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\EmployeesExport, $fileName);
+    }
+
+    public function template(Request $request)
+    {
+        $format = strtolower($request->query('format', 'xlsx'));
+        $fileName = 'Template_Import_Karyawan.' . ($format === 'csv' ? 'csv' : 'xlsx');
+
+        if ($format === 'csv') {
+            return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\EmployeesTemplateExport, $fileName, \Maatwebsite\Excel\Excel::CSV);
+        }
+
+        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\EmployeesTemplateExport, $fileName);
     }
 
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv|max:5120',
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
         ]);
 
-        \Maatwebsite\Excel\Facades\Excel::import(new \App\Imports\EmployeesImport, $request->file('file'));
+        try {
+            $import = new \App\Imports\EmployeesImport();
+            \Maatwebsite\Excel\Facades\Excel::import($import, $request->file('file'));
 
-        return response()->json(['message' => 'Employees imported successfully']);
+            return response()->json([
+                'message' => "Berhasil mengimpor {$import->getRowCount()} data karyawan!",
+                'imported_count' => $import->getRowCount(),
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Gagal mengimpor file: ' . $e->getMessage()
+            ], 422);
+        }
     }
 }

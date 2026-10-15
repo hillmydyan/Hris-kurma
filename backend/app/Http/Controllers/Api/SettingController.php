@@ -56,4 +56,33 @@ class SettingController extends Controller
         $setting->delete();
         return response()->json(null, 204);
     }
+
+    public function updateBulk(Request $request)
+    {
+        $validated = $request->validate([
+            'settings' => 'required|array',
+            'settings.*.key' => 'required|string',
+            'settings.*.value' => 'nullable',
+            'settings.*.group' => 'sometimes|string',
+            'settings.*.type' => 'sometimes|string',
+        ]);
+
+        $results = [];
+        foreach ($validated['settings'] as $item) {
+            $setting = Setting::updateOrCreate(
+                ['key' => $item['key']],
+                [
+                    'value' => (string) ($item['value'] ?? ''),
+                    'group' => $item['group'] ?? 'general',
+                    'type' => $item['type'] ?? 'string',
+                ]
+            );
+            $results[] = $setting;
+        }
+
+        return response()->json([
+            'message' => 'Pengaturan berhasil disimpan.',
+            'data' => $results
+        ]);
+    }
 }

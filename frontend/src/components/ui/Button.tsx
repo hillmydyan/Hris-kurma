@@ -1,12 +1,14 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'text' | 'danger';
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'text' | 'danger' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  icon?: React.ReactNode;
+  asChild?: boolean;
 }
 
 export function Button({
@@ -16,6 +18,8 @@ export function Button({
   isLoading = false,
   leftIcon,
   rightIcon,
+  icon,
+  asChild,
   children,
   disabled,
   ...props
@@ -25,6 +29,7 @@ export function Button({
   const variants = {
     primary: 'bg-primary text-surface hover:bg-primary-hover',
     secondary: 'bg-surface text-text-primary border border-border-input hover:bg-subtle',
+    outline: 'bg-transparent text-text-primary border border-border-input hover:bg-subtle',
     text: 'bg-transparent text-primary hover:bg-subtle',
     danger: 'bg-danger text-surface hover:bg-danger-hover focus:ring-danger',
   };
@@ -35,6 +40,8 @@ export function Button({
     lg: 'h-12 px-6 text-body-lg',
   };
 
+  const actualLeftIcon = leftIcon || icon;
+
   return (
     <button
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
@@ -43,8 +50,8 @@ export function Button({
     >
       {isLoading ? (
         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-      ) : leftIcon ? (
-        <span className="mr-2">{leftIcon}</span>
+      ) : actualLeftIcon ? (
+        <span className="mr-2">{actualLeftIcon}</span>
       ) : null}
       
       {children}

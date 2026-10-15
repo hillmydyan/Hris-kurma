@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { QRCodeSVG } from 'qrcode.react';
-import { RefreshCw, Download, Search, Filter, Loader2 } from 'lucide-react';
+import { RefreshCw, Download, Search, Filter, Loader2, Printer, ShieldCheck, CheckCircle2, AlertTriangle, Building, Sparkles, Calendar, Tv } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { Table, TableHeader, TableRow, TableHead, TableCell } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/Pagination';
+import { Modal } from '../../components/ui/Modal';
 import api from '../../lib/api';
 
 export function AdminAttendance() {
@@ -15,6 +16,123 @@ export function AdminAttendance() {
   const [loading, setLoading] = useState(true);
   const [attendances, setAttendances] = useState<any[]>([]);
   const [loadingAttendances, setLoadingAttendances] = useState(true);
+
+  // States untuk Unduh QR (Harian Khusus Hari Ini / Dinamis)
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [dailyQrToken, setDailyQrToken] = useState('');
+  const [dailyQrDate, setDailyQrDate] = useState('');
+  const [dailyQrRawDate, setDailyQrRawDate] = useState('');
+  const [loadingDailyQr, setLoadingDailyQr] = useState(false);
+  const [qrDownloadTab, setQrDownloadTab] = useState<'daily' | 'dynamic'>('daily');
+
+  const fetchDailyQr = async () => {
+    setLoadingDailyQr(true);
+    try {
+      const res = await api.get('/attendance/daily-qr');
+      setDailyQrToken(res.data.token);
+      setDailyQrDate(res.data.date_formatted || res.data.date);
+      setDailyQrRawDate(res.data.date);
+    } catch (err) {
+      console.error('Error fetching daily QR:', err);
+    } finally {
+      setLoadingDailyQr(false);
+    }
+  };
+
+  const handleOpenDownload = () => {
+    setDownloadModalOpen(true);
+    fetchDailyQr();
+  };
+
+  const downloadQrAsPng = (elementId: string, filename: string) => {
+    const svg = document.getElementById(elementId) as unknown as SVGSVGElement;
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        const pngFile = canvas.toDataURL('image/png');
+        const downloadLink = document.createElement('a');
+        downloadLink.download = filename;
+        downloadLink.href = pngFile;
+        downloadLink.click();
+      }
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
+  const handlePrintPoster = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const svg = document.getElementById('daily-qr-svg') as unknown as SVGSVGElement;
+    const svgHtml = svg ? svg.outerHTML : '';
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Poster Presensi QR Harian - Kurma Group</title>
+        <style>
+          @page { size: A4 portrait; margin: 15mm; }
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; color: #1e293b; padding: 24px; margin: 0; }
+          .header { border-bottom: 3px solid #4f46e5; padding-bottom: 14px; margin-bottom: 20px; }
+          .logo { font-size: 28px; font-weight: 800; color: #4f46e5; letter-spacing: -0.5px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+          .sublogo { font-size: 13px; color: #64748b; margin-top: 4px; }
+          .date-badge { display: inline-block; background: #eef2ff; border: 1.5px solid #4f46e5; color: #3730a3; font-weight: 700; font-size: 13px; padding: 6px 18px; border-radius: 9999px; margin-top: 12px; }
+          .title { font-size: 22px; font-weight: 700; margin: 18px 0 8px 0; color: #0f172a; }
+          .desc { font-size: 13px; color: #475569; max-width: 480px; margin: 0 auto 20px auto; line-height: 1.5; }
+          .qr-box { display: inline-block; padding: 20px; border: 3px solid #e2e8f0; border-radius: 16px; background: white; margin-bottom: 20px; }
+          .info-grid { display: flex; justify-content: center; gap: 14px; max-width: 540px; margin: 0 auto; text-align: left; }
+          .info-item { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 8px; font-size: 12px; flex: 1; }
+          .info-item strong { display: block; color: #0f172a; font-size: 13px; margin-bottom: 2px; }
+          .footer { margin-top: 28px; font-size: 11px; color: #94a3b8; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">
+            <img src="${window.location.origin}/logo.ico" alt="" style="width:36px;height:36px;object-fit:contain;" />
+            <span>KURMA GROUP</span>
+          </div>
+          <div class="sublogo">Sistem Informasi SDM & Presensi Resmi</div>
+          <div class="date-badge">KHUSUS HARI INI: ${dailyQrDate || 'Hari Ini'}</div>
+        </div>
+        <div class="title">SCAN PRESENSI HARIAN KANTOR</div>
+        <div class="desc">Buka aplikasi HRIS di smartphone Anda, pilih menu <strong>Absensi QR</strong>, lalu scan kode QR di bawah ini:</div>
+        <div class="qr-box">${svgHtml}</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <strong>Absen Masuk (Pagi)</strong>
+            08:00 WIB (Toleransi s/d 08:15)
+          </div>
+          <div class="info-item">
+            <strong>Absen Pulang (Sore)</strong>
+            Mulai Pukul 16:00 WIB
+          </div>
+          <div class="info-item">
+            <strong>Masa Berlaku</strong>
+            Khusus Hari Ini s/d 23:59 WIB
+          </div>
+        </div>
+        <div class="footer">
+          Kode QR Presensi Harian • Otomatis kedaluwarsa tengah malam • Kurma Group Official
+        </div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 400);
+  };
 
   const fetchQrCode = async () => {
     setLoading(true);
@@ -33,7 +151,9 @@ export function AdminAttendance() {
     setLoadingAttendances(true);
     try {
       const response = await api.get('/attendance');
-      setAttendances(response.data);
+      const raw = response.data;
+      const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
+      setAttendances(list);
     } catch (error) {
       console.error('Error fetching attendances:', error);
     } finally {
@@ -68,7 +188,7 @@ export function AdminAttendance() {
               </div>
             ) : qrToken ? (
               <div className="p-4 bg-white rounded-xl shadow-sm border border-border-default mb-6">
-                <QRCodeSVG value={qrToken} size={256} level="H" includeMargin />
+                <QRCodeSVG id="dynamic-qr-svg" value={qrToken} size={256} level="H" includeMargin />
               </div>
             ) : (
               <div className="w-64 h-64 flex flex-col items-center justify-center border-2 border-dashed border-border-default rounded-md text-text-muted">
@@ -80,7 +200,12 @@ export function AdminAttendance() {
               <Button variant="secondary" leftIcon={<RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />} onClick={fetchQrCode} disabled={loading}>
                 Perbarui QR
               </Button>
-              <Button variant="primary" leftIcon={<Download className="w-4 h-4" />} disabled={loading || !qrToken}>
+              <Button 
+                variant="primary" 
+                leftIcon={<Download className="w-4 h-4" />} 
+                onClick={handleOpenDownload}
+                disabled={loading || !qrToken}
+              >
                 Unduh QR
               </Button>
             </div>
@@ -89,19 +214,19 @@ export function AdminAttendance() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Instruksi Pemakaian</CardTitle>
+            <CardTitle>Instruksi Pemakaian Terminal</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-body text-text-secondary">
             <ol className="list-decimal pl-5 space-y-2">
-              <li>Cetak atau tampilkan layar ini pada perangkat di pintu masuk kantor.</li>
-              <li>Karyawan membuka aplikasi HRIS mereka dan menuju menu <strong>Absensi</strong>.</li>
-              <li>Karyawan menekan tombol <strong>Scan QR Absensi</strong> dan mengarahkan kamera ke QR Code ini.</li>
-              <li>QR Code akan otomatis mencatat waktu kedatangan (Clock-In) maupun kepulangan (Clock-Out).</li>
+              <li>Tampilkan layar ini atau buka halaman <strong>Terminal Layar Penuh (TV)</strong> pada layar monitor kantor.</li>
+              <li><strong>Absen Pagi (Masuk):</strong> Karyawan melakukan scan saat tiba di kantor (Batas tepat waktu s/d 08:15 WIB).</li>
+              <li><strong>Absen Sore (Pulang):</strong> Karyawan melakukan scan saat jam kerja selesai (Mulai pukul 16:00 WIB).</li>
+              <li>Sistem secara otomatis mencatat waktu absensi pagi, sore, dan menghitung durasi kerja harian.</li>
             </ol>
             <div className="p-4 bg-info-subtle border border-info-border rounded-md mt-6">
-              <p className="text-info-fg text-label font-medium mb-1">Catatan Keamanan</p>
+              <p className="text-info-fg text-label font-medium mb-1">Catatan Keamanan Dynamic QR</p>
               <p className="text-sm text-info-fg/80">
-                QR Code diperbarui secara berkala dan hanya berlaku untuk hari ini. Jangan menyebarkan QR Code ini melalui grup chat untuk menghindari manipulasi absensi.
+                QR Code berputar secara berkala untuk mencegah screenshot atau titip absen dari luar kantor.
               </p>
             </div>
           </CardContent>
@@ -110,7 +235,7 @@ export function AdminAttendance() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Log Absensi Hari Ini</CardTitle>
+          <CardTitle>Log Absensi Pagi & Sore Hari Ini</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="p-4 border-b border-border-default flex flex-col sm:flex-row justify-between gap-4 bg-subtle/50">
@@ -133,10 +258,10 @@ export function AdminAttendance() {
             <TableHeader>
               <TableRow>
                 <TableHead>Karyawan</TableHead>
-                <TableHead>Waktu Check-In</TableHead>
-                <TableHead>Waktu Check-Out</TableHead>
-                <TableHead>Metode</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Absen Pagi (Masuk)</TableHead>
+                <TableHead>Absen Sore (Pulang)</TableHead>
+                <TableHead>Durasi Kerja</TableHead>
+                <TableHead>Status Harian</TableHead>
               </TableRow>
             </TableHeader>
             <tbody>
@@ -154,35 +279,73 @@ export function AdminAttendance() {
                   </TableCell>
                 </TableRow>
               ) : (
-                attendances.map((att: any) => (
-                  <TableRow key={att.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary-soft text-primary flex items-center justify-center font-bold text-xs">
-                          {att.employee?.first_name?.charAt(0)}{att.employee?.last_name ? att.employee.last_name.charAt(0) : ''}
+                attendances.map((att: any) => {
+                  const attIn = att.time_in ? att.time_in.slice(0, 5) : null;
+                  const attOut = att.time_out ? att.time_out.slice(0, 5) : null;
+                  const isLate = att.status === 'late' || (attIn && attIn > '08:15');
+                  
+                  // Calculate duration
+                  let duration = '-';
+                  if (attIn && attOut) {
+                    const [h1, m1] = attIn.split(':').map(Number);
+                    const [h2, m2] = attOut.split(':').map(Number);
+                    const diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+                    if (diff > 0) {
+                      duration = `${Math.floor(diff / 60)}j ${diff % 60}m`;
+                    }
+                  }
+
+                  return (
+                    <TableRow key={att.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary-soft text-primary flex items-center justify-center font-bold text-xs">
+                            {att.employee?.first_name?.charAt(0)}{att.employee?.last_name ? att.employee.last_name.charAt(0) : ''}
+                          </div>
+                          <div>
+                            <p className="font-medium text-text-primary">
+                              {att.employee?.first_name} {att.employee?.last_name || ''}
+                            </p>
+                            <p className="text-caption text-text-muted">{att.employee?.employee_id}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-text-primary">
-                            {att.employee?.first_name} {att.employee?.last_name || ''}
-                          </p>
-                          <p className="text-caption text-text-muted">{att.employee?.employee_id}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{att.time_in || '-'}</TableCell>
-                    <TableCell>{att.time_out || '-'}</TableCell>
-                    <TableCell>
-                      <span className="text-caption px-2 py-1 bg-subtle rounded-md text-text-secondary border border-border-default uppercase">
-                        {att.type}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={att.status === 'present' ? 'success' : att.status === 'late' ? 'warning' : 'danger'}>
-                        {att.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                      <TableCell>
+                        {attIn ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-medium text-emerald-700 dark:text-emerald-400">
+                              {attIn} WIB
+                            </span>
+                            {isLate && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning-bg text-warning-fg font-medium">
+                                Telat
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-text-muted font-mono">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {attOut ? (
+                          <span className="font-mono font-medium text-blue-700 dark:text-blue-400">
+                            {attOut} WIB
+                          </span>
+                        ) : (
+                          <span className="text-text-muted font-mono">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-caption font-mono text-text-secondary">{duration}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={att.status === 'present' ? 'success' : att.status === 'late' ? 'warning' : 'danger'}>
+                          {att.status === 'present' ? 'Hadir' : att.status === 'late' ? 'Terlambat' : att.status === 'leave' ? 'Izin' : 'Alpa'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </tbody>
           </Table>
@@ -198,6 +361,134 @@ export function AdminAttendance() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal Unduh QR: Opsi Permanen (Siap Cetak / Tempel Dinding) vs Dinamis Sesi Hari Ini */}
+      <Modal
+        isOpen={downloadModalOpen}
+        onClose={() => setDownloadModalOpen(false)}
+        title="Unduh & Cetak Kode QR Presensi"
+        size="md"
+      >
+        <div className="space-y-5">
+          {/* Tabs Pilihan */}
+          <div className="flex border-b border-border-default">
+            <button
+              type="button"
+              onClick={() => setQrDownloadTab('daily')}
+              className={`flex-1 py-2.5 text-sm font-semibold text-center border-b-2 transition-colors flex items-center justify-center gap-2 ${
+                qrDownloadTab === 'daily'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-text-muted hover:text-text-primary'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              QR Harian Kantor (Khusus Hari Ini)
+            </button>
+            <button
+              type="button"
+              onClick={() => setQrDownloadTab('dynamic')}
+              className={`flex-1 py-2.5 text-sm font-semibold text-center border-b-2 transition-colors flex items-center justify-center gap-2 ${
+                qrDownloadTab === 'dynamic'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-text-muted hover:text-text-primary'
+              }`}
+            >
+              <Tv className="w-4 h-4" />
+              QR Layar TV (Dinamis 60 Detik)
+            </button>
+          </div>
+
+          {qrDownloadTab === 'daily' ? (
+            /* TAB 1: QR HARIAN KANTOR (KHUSUS HARI INI - HANGUS TENGAH MALAM) */
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-0.5 text-emerald-800 dark:text-emerald-300">
+                  <p className="font-bold">Khusus Hari Ini Saja (Berlaku s/d Pkl 23:59 WIB)</p>
+                  <p className="leading-relaxed text-emerald-700 dark:text-emerald-400">
+                    QR ini dibuat khusus untuk presensi kantor hari ini {dailyQrDate ? `(${dailyQrDate})` : ''}. Karyawan dapat scan untuk absen masuk (08:00) & absen pulang (16:00). Kode akan <strong>otomatis hangus saat pergantian hari</strong> sehingga tidak bisa dipakai untuk hari esok.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center justify-center p-4 bg-white rounded-xl border border-border-default shadow-sm">
+                {loadingDailyQr ? (
+                  <div className="w-52 h-52 flex flex-col items-center justify-center">
+                    <Loader2 className="w-7 h-7 animate-spin text-primary mb-2" />
+                    <span className="text-xs text-text-muted">Memuat QR Harian...</span>
+                  </div>
+                ) : dailyQrToken ? (
+                  <>
+                    <QRCodeSVG id="daily-qr-svg" value={dailyQrToken} size={220} level="H" includeMargin />
+                    <p className="text-[11px] font-mono text-text-muted mt-2">
+                      TOKEN: {dailyQrToken}
+                    </p>
+                    <div className="mt-1 flex items-center gap-1.5 text-xs text-text-muted font-medium">
+                      <Calendar className="w-3.5 h-3.5 text-text-muted" />
+                      <span>{dailyQrDate || 'Hari Ini'}</span>
+                      <span>•</span>
+                      <span className="text-emerald-600 font-semibold">Berlaku s/d 23:59 WIB</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-danger py-8">Gagal memuat token harian.</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  leftIcon={<Download className="w-4 h-4" />}
+                  onClick={() => downloadQrAsPng('daily-qr-svg', `QR_Absensi_Harian_${dailyQrRawDate || 'HariIni'}.png`)}
+                  disabled={loadingDailyQr || !dailyQrToken}
+                  className="w-full"
+                >
+                  Unduh Gambar PNG
+                </Button>
+                <Button
+                  variant="primary"
+                  leftIcon={<Printer className="w-4 h-4" />}
+                  onClick={handlePrintPoster}
+                  disabled={loadingDailyQr || !dailyQrToken}
+                  className="w-full"
+                >
+                  Cetak Poster Harian A4
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* TAB 2: QR LAYAR DINAMIS (SESI 60 DETIK) */
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-0.5 text-amber-800 dark:text-amber-300">
+                  <p className="font-bold">Berlaku Sebentar (Kedaluwarsa dalam 60 Detik)</p>
+                  <p className="leading-relaxed text-amber-700 dark:text-amber-400">
+                    QR ini adalah token sesi real-time yang sedang tampil di layar. <strong>Tidak disarankan untuk dicetak</strong> karena akan hangus dalam hitungan detik. Gunakan menu <em>Layar QR Kantor (TV)</em> untuk menampilkan QR dinamis secara langsung.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center justify-center p-4 bg-white rounded-xl border border-border-default shadow-sm">
+                <QRCodeSVG id="session-qr-svg" value={qrToken} size={220} level="H" includeMargin />
+                <p className="text-[11px] font-mono text-text-muted mt-2">
+                  TOKEN SESI: {qrToken.slice(0, 20)}...
+                </p>
+              </div>
+
+              <Button
+                variant="secondary"
+                leftIcon={<Download className="w-4 h-4" />}
+                onClick={() => downloadQrAsPng('session-qr-svg', `QR_Absensi_Sesi_${date}.png`)}
+                disabled={!qrToken}
+                className="w-full"
+              >
+                Unduh Gambar Sesi Ini (PNG)
+              </Button>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -11,13 +11,13 @@ class KpiController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        if ($user->hasRole('HR') || $user->hasRole('Admin')) {
+        if ($user->can('kpi.manage') || $user->hasAnyRole(['super-admin', 'hr-manager', 'dept-head'])) {
             $kpis = Kpi::with('employee')->latest()->get();
             return response()->json($kpis);
         }
 
         $employee = $user->employee;
-        if (!$employee) return response()->json([], 403);
+        if (!$employee) return response()->json([]);
 
         $kpis = $employee->kpis()->latest()->get();
         return response()->json($kpis);

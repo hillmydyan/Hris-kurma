@@ -33,6 +33,8 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        $user->load(['employee.currentAssignment.department', 'employee.currentAssignment.jobPosition', 'employee.currentAssignment.workLocation']);
+
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
@@ -40,7 +42,10 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-                'roles' => $user->getRoleNames()
+                'roles' => $user->getRoleNames(),
+                'permissions' => $user->getAllPermissions()->pluck('name'),
+                'can_access_backend' => $user->hasAnyRole(['super-admin', 'owner', 'direksi', 'hr-manager', 'hr']) && $user->can('portal.backend_access'),
+                'employee' => $user->employee,
             ]
         ]);
     }

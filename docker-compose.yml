@@ -1,0 +1,49 @@
+services:
+  # ========================================================
+  # CONTAINER UTAMA: HRIS KURMA GROUP (ALL-IN-ONE)
+  # Berisi: React Vite + Laravel API + Nginx + PHP-FPM + Worker + Scheduler
+  # Hanya menggunakan 1 port (8085) untuk Cloudflare Tunnel
+  # ========================================================
+  hris:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hris-app
+    restart: unless-stopped
+    ports:
+      # Terkunci ke 127.0.0.1 (hanya bisa diakses oleh Cloudflare Tunnel lokal)
+      - "127.0.0.1:${HRIS_PORT:-8085}:80"
+    volumes:
+      # Volume untuk file upload (foto absensi, avatar, excel, dokumen) agar tetap tersimpan aman
+      - ./backend/storage:/var/www/backend/storage
+      # Mengaitkan file .env produksi
+      - ./backend/.env:/var/www/backend/.env
+    # Jika menggunakan container database 'db' di bawah, aktifkan baris ini:
+    depends_on:
+      - db
+
+  # ========================================================
+  # DATABASE (MySQL 8.0)
+  # Catatan: Jika VPS Anda SUDAH punya container MySQL sendiri,
+  # hapus/komentari blok 'db:' ini, lalu arahkan DB_HOST di backend/.env
+  # ke MySQL yang sudah ada.
+  # ========================================================
+  db:
+    image: mysql:8.0
+    container_name: hris-db
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-hris_db}
+      MYSQL_USER: ${DB_USERNAME:-hris_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-hris_secret}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_secret}
+    ports:
+      # Terkunci ke 127.0.0.1 (Hanya bisa diakses lewat SSH Tunnel dari DBeaver/TablePlus di laptop)
+      - "127.0.0.1:${HRIS_DB_PORT:-3307}:3306"
+    volumes:
+      - hris-db-data:/var/lib/mysql
+
+volumes:
+  hris-db-data:
+    driver: local

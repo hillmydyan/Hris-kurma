@@ -2,17 +2,21 @@
 
 **Dokumen:** Product Requirements Document — Sistem (fungsional, data, teknis, implementasi)  
 **Perusahaan:** Kurma Group Indonesia  
-**Versi:** 2.0 — menggantikan `PRD_HRIS_Workflow_Design.md` (v1)  
-**Tanggal:** 9 Oktober 2026  
-**Status:** Draft untuk direview  
+**Versi:** 2.1 — diselaraskan dengan spesifikasi arsitektur & fitur `PROMPT_AI_AGENT_HRIS.md`  
+**Tanggal:** 11 Oktober 2026  
+**Status:** Disetujui untuk implementasi bertahap  
 **Dokumen pasangan:** `PRD_HRIS_Design_v2.md` (UI/UX, komponen, spesifikasi halaman)
 
-> **Pembagian dokumen.** Semua yang menjawab *"sistem harus melakukan apa, dengan aturan apa, dan datanya disimpan di mana"* ada di dokumen ini. Semua yang menjawab *"tampilannya seperti apa dan pengguna berinteraksi bagaimana"* ada di PRD Design. Kedua dokumen memakai ID yang sama supaya bisa saling dirujuk.
+> **Pembagian dokumen & Arsitektur Utama.**
+> Sistem memiliki dua area utama yang terpisah secara tegas dari navigasi, tampilan, serta hak akses:
+> 1. **User Portal:** Area swalayan seluruh karyawan (Dashboard Pribadi, Profil, Absensi QR Code Dinamis, Pengajuan Izin/Cuti, Daily Report Spreadsheet, Riwayat & Notifikasi).
+> 2. **Management Backend:** Area manajemen bagi Admin, HR, Owner/Direksi, Department Manager, dan Finance (Kelola Karyawan, Organisasi, Absensi & QR Display, Persetujuan/Approval, Daily Report Review & Produktivitas, KPI, Penggajian/Payroll, Laporan & Ekspor, Pengguna & Role, Pengaturan, Audit Log).
+> Kedua dokumen memakai ID yang sama supaya bisa saling dirujuk.
 
 ## Daftar Isi
 
 0. Cara membaca dokumen
-1. Perubahan dari v1
+1. Perubahan dari v2.0 ke v2.1
 2. Ringkasan produk
 3. Pengguna dan organisasi
 4. Keputusan bisnis dan default
@@ -35,78 +39,98 @@
 | Awalan ID | Arti | Contoh |
 |---|---|---|
 | `K-nn` | Keputusan bisnis yang perlu ditetapkan | K-01 |
-| `Mnn` | Modul | M04 Attendance |
-| `FR-XXX-nn` | Functional requirement — apa yang harus bisa dilakukan sistem | FR-ATT-01 |
-| `BR-XXX-nn` | Business rule — aturan yang wajib ditegakkan backend | BR-LEV-03 |
-| `AC-XXX-nn` | Acceptance criteria — cara menguji bahwa requirement terpenuhi | AC-EMP-02 |
+| `Mnn` | Modul | M04 Attendance, M07 Daily Report |
+| `FR-XXX-nn` | Functional requirement — apa yang harus bisa dilakukan sistem | FR-ATT-01, FR-DREP-01 |
+| `BR-XXX-nn` | Business rule — aturan yang wajib ditegakkan backend | BR-LEV-03, BR-DREP-02 |
+| `AC-XXX-nn` | Acceptance criteria — cara menguji bahwa requirement terpenuhi | AC-EMP-02, AC-DREP-01 |
 | `N-nn` | Event notifikasi | N-07 |
 | `R-nn` | Laporan | R-02 |
-| `T<fase>.nn` | Task implementasi | T3.05 |
-| `P-nn`, `C-nn`, `D-nn` | Halaman, komponen, task desain (lihat PRD Design) | P-08 |
+| `T<fase>.nn` | Task implementasi | T1.01, T2.05 |
+| `P-nn`, `C-nn`, `D-nn` | Halaman, komponen, task desain (lihat PRD Design) | P-08, P-15 |
 
 **Prioritas requirement:** **W** = wajib saat fase modul itu dirilis, **S** = sebaiknya ada, **O** = opsional/boleh menyusul.
 
-**Fase rilis:** **F1** = MVP, **F2** = Task & KPI, **F3** = Payroll, Rekrutmen, On/Offboarding.
+**Fase rilis (Sesuai Roadmap PROMPT):**
+- **Phase 1 — Foundation:** Organisasi aktual, Auth, Granular RBAC, Dual-Portal Layout.
+- **Phase 2 — User Portal:** Dashboard, Profile, Dynamic QR Attendance, Leave Request, Daily Report Spreadsheet, Riwayat & Notifikasi.
+- **Phase 3 — Management Backend:** Employee Mgmt, Attendance Mgmt & QR Screen, Approval Mgmt, Daily Report Review, Dashboard Mgmt.
+- **Phase 4 — Performance & Payroll:** KPI Mgmt, Payroll Mgmt (strict privacy), Slip Gaji, Laporan Manajemen, Export.
+- **Phase 5 — Quality Assurance & Security:** Testing permission, workflow, dynamic QR anti-double-scan, audit trail, security hardening.
 
-**Kode modul:** AUTH, ORG, EMP, ATT, LEV, APR, TSK, KPI, DSH, RPT, NTF, SET, PAY, REC.
+**Kode modul:** AUTH, ORG, EMP, ATT, LEV, APR, DREP (Daily Report), KPI, DSH, RPT, NTF, SET, PAY, REC.
 
 ---
 
-## 1. Perubahan dari v1
+## 1. Perubahan dari v2.0 ke v2.1
 
-| # | Area | Kekurangan di v1 | Perbaikan di v2 |
+| # | Area | Kondisi di v2.0 | Pembaruan di v2.1 (`PROMPT_AI_AGENT_HRIS.md`) |
 |---|---|---|---|
-| 1 | Struktur dokumen | Sistem dan desain tercampur dalam satu dokumen | Dipisah menjadi PRD Sistem dan PRD Design dengan ID silang |
-| 2 | Requirement | Fitur hanya berupa daftar poin | Tiap modul punya FR, BR, alur status, validasi, kasus tepi, dan AC yang bisa diuji |
-| 3 | Role & permission | Banyak sel "sesuai kewenangan" / "tidak otomatis" | Katalog permission eksplisit, cakupan data (own/team/all), matriks per role |
-| 4 | Atasan & approver | Tidak jelas siapa approver untuk para Manager dan staff HR Department (departemen ini tidak punya jabatan kepala) | Aturan resolusi approver berjenjang + approver cadangan (K-02, M06) |
-| 5 | Absensi | Belum mengatur lupa clock-out, alpa otomatis, batas waktu koreksi, bentrok dengan cuti, kunci periode | Ditambahkan (FR-ATT-04 s.d. FR-ATT-09 dan BR-ATT) |
-| 6 | Cuti | Belum ada jenis cuti, saldo, validasi bentrok, pembatalan | Ditambahkan jenis cuti, saldo dengan reservasi, pembatalan, pengingat |
-| 7 | Tugas & KPI | "Task (by ceklis)" dan "task perhari" belum dijabarkan | Ditambahkan checklist, task rutin harian, mesin status, rumus skor KPI |
-| 8 | Database | Kolom kunci belum ada (mis. tanggal kerja, nilai koreksi, urutan langkah approval) dan beberapa tabel belum didefinisikan | Skema dirinci per kolom, ditambah tabel pendukung (jadwal, libur, jenis cuti, saldo, lampiran, dst.) |
-| 9 | NFR | Tidak terukur | Diberi target angka (waktu respons, backup, RPO/RTO, kebijakan password) |
-| 10 | Implementasi | 7 tahap garis besar | Task breakdown ber-ID per fase, lengkap dengan output dan dependensi |
-| 11 | Keputusan bisnis | 6 pertanyaan terbuka tanpa arah | 12 keputusan, masing-masing punya default supaya development tidak terhenti |
-| 12 | Cakupan fase | Payroll & rekrutmen tercantum sebagai fitur tetapi di luar MVP | Peta modul × fase yang tegas (bagian 5) |
+| 1 | Arsitektur Aplikasi | Satu portal tercampur dalam satu sidebar navigasi | Pemisahan tegas: **User Portal** (karyawan) dan **Management Backend** (admin/manager/HR/finance) |
+| 2 | Fitur Utama User | M07 Task Management berbasis proyek/kanban | **Daily Report (Spreadsheet-Style):** Laporan aktivitas harian seperti spreadsheet (inline edit, baris dinamis, draft/autosave, submit, template departemen, workflow review *Draft → Submitted → Needs Revision → Accepted*) |
+| 3 | Metode Absensi | Tombol clock-in/out web standar | **Absensi Dynamic QR Code:** Scanner kamera di User Portal, layar display Dynamic QR di Admin Attendance, token berputar, server timestamp, pencegahan scan ganda & replay |
+| 4 | Struktur Organisasi | Master data departemen generik | Struktur 4 departemen resmi Kurma Group: **Herbal**, **Fashion MY PH**, **Shopee Video**, dan **HR Department** beserta jabatan terinci |
+| 5 | Privasi & RBAC Payroll | Hanya sel "sesuai kewenangan" | **Isolasi Privasi Ketat:** Staff hanya melihat slip sendiri, Manager tidak melihat gaji tim, HR Staff dibatasi, tipe data desimal, audit log wajib untuk mutasi gaji |
+| 6 | Integrasi KPI | Berbasis task completion | KPI terhubung dengan indikator jabatan; Daily Report menjadi salah satu bukti evaluasi (bukan satu-satunya penentu skor) |
+| 7 | Roadmap Fase | Fase rilis F1–F3 generik | Diselaraskan menjadi 5 Fase Implementasi Bertahap (Foundation → User Portal → Management Backend → Performance & Payroll → QA & Security) |
 
 ---
 
 ## 2. Ringkasan Produk
 
-### 2.1 Latar belakang
+### 2.1 Latar Belakang & Pembagian Portal
 
-HRIS adalah aplikasi web internal untuk mengelola data karyawan, absensi, cuti/izin, tugas, KPI, laporan, dan — pada fase lanjutan — penggajian serta rekrutmen. Sistem memakai *role-based access control* (RBAC): setiap pengguna hanya bisa mengakses data dan tindakan yang sesuai jabatan serta kewenangannya.
+HRIS Company Management System adalah aplikasi web operasional terpadu yang memisahkan pengalaman pengguna ke dalam dua area kerja yang jelas:
 
-### 2.2 Tujuan
+1. **User Portal:**
+   - Halaman swalayan untuk seluruh staf dan karyawan:
+   - Dashboard pribadi (sapaan, status absensi hari ini, tombol scan QR, status daily report, cuti terakhir).
+   - Profil karyawan (informasi kontak yang diizinkan untuk diubah secara mandiri).
+   - Absensi QR Code (pemindaian kamera langsung ke QR kantor).
+   - Pengajuan Izin/Cuti dan pemantauan status.
+   - **Daily Report Harian:** Pengisian laporan spreadsheet-style dengan validasi waktu, draft/autosave, dan submit.
+   - Riwayat kehadiran, izin, dan laporan sebelumnya.
+   - Notifikasi personal.
 
-1. Memusatkan data karyawan dalam satu database yang punya histori.
-2. Mempermudah pencatatan absensi, jam kerja, dan pengajuan cuti/izin.
-3. Menyediakan alur persetujuan yang jelas, terlacak, dan tidak bergantung pada chat.
-4. Mengelola tugas dan progres kerja antar-departemen, termasuk task rutin harian.
-5. Mengukur kinerja dengan KPI yang berbeda per jenis pekerjaan.
-6. Menyediakan laporan untuk HR, Manager, Manager Operasional, dan manajemen.
-7. Mencatat perubahan data dan keputusan persetujuan dalam audit trail.
+2. **Management Backend:**
+   - Ruang kendali untuk Admin Sistem, HR, Owner, Manager Departemen, dan Finance:
+   - Dashboard manajemen (data aktual live database: rekap kehadiran, keterlambatan, pengajuan pending, daily report butuh review, KPI, payroll).
+   - Employee Management & riwayat mutasi tanpa kehilangan histori.
+   - Department & Position Management.
+   - Attendance Management & layar display QR Dinamis kantor.
+   - Leave & Approval Management (Cuti/Izin, Koreksi Absensi, Daily Report).
+   - Daily Report Management (review tim, Accept / Request Revision, rekap produktivitas, export Excel).
+   - KPI & Performance Management.
+   - Payroll Management (dengan proteksi isolasi data sensitif).
+   - Reports & Export data.
+   - User & Role Management (granular RBAC).
+   - System Settings & Audit Logs.
 
-### 2.3 Sasaran terukur (target awal, boleh disesuaikan)
+### 2.2 Tujuan Utama
+
+1. Memusatkan data karyawan dan struktur organisasi secara dinamis tanpa hardcode.
+2. Memfasilitasi absensi cepat dan aman menggunakan Dynamic QR Code tervalidasi backend.
+3. Menggantikan pelaporan kerja manual dengan **Daily Report interaktif spreadsheet**.
+4. Alur approval transparan dan berjenjang (Disetujui, Ditolak, Minta Revisi).
+5. Pengelolaan KPI dan Payroll dengan penegakan hak akses granular dan audit trail ketat.
+6. Menampilkan data database aktual tanpa angka dummy di dashboard produksi.
+
+### 2.3 Sasaran Terukur
 
 | Sasaran | Target | Cara ukur |
 |---|---|---|
 | Kelengkapan data | 100% karyawan aktif punya akun dan profil lengkap ≤ 2 minggu setelah go-live | Laporan R-01 |
-| Adopsi absensi | ≥ 95% hari kerja tercatat clock-in dan clock-out lewat sistem pada bulan ke-2 | Laporan R-02 |
-| Adopsi cuti | 100% pengajuan cuti/izin lewat sistem mulai bulan ke-2 | Laporan R-05 |
-| Kecepatan approval | Median waktu keputusan ≤ 1 hari kerja | Data `approval_steps` |
-| Efisiensi rekap | Rekap absensi bulanan siap ≤ 1 hari kerja setelah akhir bulan | Tanggal kunci periode |
-| Keamanan akses | 0 akses data oleh role yang tidak berwenang | Uji matriks role + audit log |
+| Adopsi QR Absensi | ≥ 95% hari kerja tercatat scan QR masuk & pulang valid | Laporan R-02 & data QR token |
+| Adopsi Daily Report | 100% karyawan aktif submit Daily Report setiap hari kerja | Rekap Daily Report M07 |
+| Adopsi cuti/izin | 100% pengajuan cuti/izin lewat sistem mulai bulan ke-1 | Laporan R-05 |
+| Kecepatan approval | Median waktu keputusan ≤ 1 hari kerja | Data `approval_steps` & `daily_report_reviews` |
+| Keamanan akses | 0 kebocoran data gaji atau data pribadi ke role yang tidak berhak | Audit log & uji permission |
 
-### 2.4 Di luar cakupan (versi ini)
+### 2.4 Di Luar Cakupan (Versi Ini)
 
-- Aplikasi mobile native (cukup web responsif).
-- Integrasi mesin fingerprint / face recognition.
-- Absensi berbasis GPS atau foto (disiapkan sebagai opsi lanjutan, lihat K-03).
-- Perhitungan lembur otomatis dan cuti setengah hari.
-- Perhitungan PPh 21 dan BPJS otomatis (di F3 nilainya diinput manual).
-- Notifikasi WhatsApp (lihat K-12).
-- Multi-perusahaan (multi-tenant), pelatihan/LMS, inventaris aset, dan stok barang.
+- Aplikasi mobile native (antarmuka User Portal sudah PWA/mobile responsive).
+- Mesin fingerprint / biometric hardware eksternal.
+- Notifikasi SMS / WhatsApp berbayar pihak ketiga (fokus notifikasi in-app & email).
+- Multi-tenant multi-perusahaan.
 
 ---
 
@@ -168,59 +192,52 @@ Satu pengguna boleh punya lebih dari satu role; hak aksesnya adalah gabungan sel
 
 ## 4. Keputusan Bisnis dan Default
 
-Setiap keputusan di bawah punya **default** yang dipakai PRD ini. Development bisa berjalan dengan default tersebut; sebagian besar dibuat sebagai konfigurasi sehingga mengubahnya nanti tidak perlu ubah kode. Yang bertanda ⚠️ sebaiknya diputuskan sebelum fase terkait dimulai karena memengaruhi data.
+Setiap keputusan di bawah punya **default** yang dipakai PRD ini. Sebagian besar dibuat sebagai konfigurasi sehingga mengubahnya nanti tidak perlu ubah kode.
 
 | ID | Keputusan | Default di PRD ini | Bisa diubah lewat pengaturan? | Fase |
 |---|---|---|---|---|
-| K-01 | Alur persetujuan cuti: atasan saja, atau atasan lalu HR? | 2 tahap (atasan → HR) untuk Cuti Tahunan, Cuti Khusus, dan Cuti Tanpa Dibayar. 1 tahap (atasan) untuk Izin dan Sakit; HR hanya menerima notifikasi | Ya, per jenis cuti | F1 |
-| K-02 ⚠️ | Siapa atasan/approver para Manager dan staff HR Department? | Tetapkan satu **Kepala HR** sebagai atasan mereka sekaligus approver cadangan. Pengajuan Kepala HR diputuskan oleh *approver puncak* yang ditunjuk manajemen; bila belum ditunjuk, divalidasi HR Admin lain dan ditandai di laporan | Ya | F1 |
-| K-03 | Metode absensi | Tombol clock-in/out di web (HP atau PC) dengan pencatatan waktu server, IP, dan perangkat. Opsi pembatasan jaringan kantor (IP whitelist) tersedia tetapi mati. GPS/foto menyusul bila dibutuhkan | Ya | F1 |
-| K-04 ⚠️ | Jam dan hari kerja | Jam kerja 08.00–16.00 WIB, toleransi terlambat 10 menit. **Hari kerja perlu dikonfirmasi** (Senin–Jumat atau Senin–Sabtu). Jadwal bisa berbeda per karyawan | Ya | F1 |
-| K-05 ⚠️ | Kebijakan cuti tahunan | 12 hari kerja per tahun, berlaku setelah 12 bulan masa kerja, periode 1 Januari–31 Desember, tanpa carry-over, cuti bersama tidak otomatis memotong saldo | Ya | F1 |
-| K-06 | Koreksi absensi | Diajukan paling lambat 7 hari setelah tanggal absensi, diputuskan atasan langsung; HR bisa input manual dengan alasan | Ya | F1 |
-| K-07 | Wewenang Manager Operasional | Boleh melihat absensi dan tugas lintas departemen (hanya lihat) dan memberi tugas lintas departemen. Tidak memutuskan cuti departemen lain kecuali ditunjuk sebagai pengganti | Ya, lewat permission | F1/F2 |
-| K-08 | Periode penilaian KPI | Penilaian mingguan, direkap otomatis per bulan. Tipe periode mingguan atau bulanan bisa dipilih saat membuat periode | Ya | F2 |
-| K-09 | Akses data di HR Department | Mengikuti role aplikasi, bukan departemen: hanya Staff HR/Kepala HR yang jadi HR Admin; Finance, IT, Data, Support, Operasional tidak otomatis melihat data karyawan | Ya, lewat role | F1 |
-| K-10 ⚠️ | Payroll | Dikerjakan di F3. Uang makan = jumlah hari hadir × tarif harian. PPh 21 dan BPJS diinput manual. Slip diterbitkan HR | Sebagian | F3 |
-| K-11 | Kalender cuti untuk staff | Staff melihat nama dan tanggal cuti rekan satu departemen, tanpa jenis dan alasan | Ya | F1 |
-| K-12 | Kanal notifikasi | Notifikasi di dalam aplikasi + email. WhatsApp di luar cakupan awal | Ya (email bisa dimatikan) | F1 |
-
-> Catatan K-05: angka 12 hari setelah 12 bulan masa kerja adalah default konfigurasi yang umum dipakai, bukan nasihat hukum. Sesuaikan dengan peraturan perusahaan dan ketentuan ketenagakerjaan yang berlaku.
+| K-01 | Alur persetujuan cuti/izin: atasan saja, atau atasan lalu HR? | 2 tahap (atasan → HR) untuk Cuti Tahunan, Cuti Khusus, dan Cuti Tanpa Dibayar. 1 tahap (atasan) untuk Izin dan Sakit; HR menerima notifikasi | Ya, per jenis cuti | Phase 2 |
+| K-02 | Siapa atasan/approver para Manager dan staff HR Department? | Tetapkan satu **Kepala HR** sebagai atasan mereka sekaligus approver cadangan. Pengajuan Kepala HR diputuskan oleh *approver puncak* yang ditunjuk manajemen/Owner | Ya | Phase 1 |
+| K-03 | Metode absensi | **Dynamic QR Code Perusahaan.** Layar Admin Attendance menampilkan QR Code dinamis yang diperbarui otomatis setiap interval waktu (mis. 30–60 detik). Karyawan memindai QR lewat kamera di User Portal. Waktu, keaslian token, dan jadwal kerja divalidasi ketat di server (mencegah manipulasi waktu browser & scan ganda) | Ya | Phase 2/3 |
+| K-04 | Jam dan hari kerja | Jam kerja default 08.00–17.00 WIB, toleransi terlambat 15 menit. Jadwal kerja dapat disesuaikan per departemen/karyawan | Ya | Phase 1 |
+| K-05 | Kebijakan cuti tahunan | 12 hari kerja per tahun, berlaku setelah 12 bulan masa kerja, periode 1 Januari–31 Desember | Ya | Phase 2 |
+| K-06 | Koreksi absensi | Diajukan paling lambat 7 hari setelah tanggal absensi, diputuskan atasan langsung; HR bisa input manual dengan audit trail | Ya | Phase 2/3 |
+| K-07 | Wewenang Manager Operasional | Memantau laporan operasional dan Daily Report tim operasional, serta melihat rekap lintas departemen bila diberi permission | Ya, lewat permission | Phase 3 |
+| K-08 | Daily Report & Periode KPI | Daily Report diisi setiap hari kerja dalam bentuk spreadsheet. KPI dievaluasi per periode (bulanan) menggunakan indikator spesifik jabatan; Daily Report menjadi salah satu bukti verifikasi kinerja | Ya | Phase 2/4 |
+| K-09 | Akses data di HR Department | Mengikuti role aplikasi granular: Staff HR mengelola data kepegawaian umum; Finance mengelola payroll; Manager Operasional mengelola operasional; tidak saling membuka data sensitif tanpa permission | Ya, lewat role | Phase 1 |
+| K-10 | Payroll & Kerahasiaan Gaji | Isolasi ketat: Staff hanya melihat slip sendiri; Manager tidak otomatis melihat gaji tim; HR Staff dibatasi; nilai disimpan bertipe decimal; perubahan gaji tercatat di audit log | Ya | Phase 4 |
+| K-11 | Kalender cuti untuk staff | Staff melihat nama dan tanggal cuti rekan satu departemen tanpa alasan personal | Ya | Phase 2 |
+| K-12 | Kanal notifikasi | In-app notification + email notification | Ya | Phase 2 |
 
 ---
 
 ## 5. Cakupan dan Fase Rilis
 
-| Modul | F1 (MVP) | F2 | F3 | Catatan |
-|---|:-:|:-:|:-:|---|
-| M01 Autentikasi & Akun | ● | | | |
-| M02 Organisasi (departemen, jabatan, lokasi kerja) | ● | | | |
-| M03 Employee Management | ● | | ○ | Offboarding lengkap dengan checklist di F3 |
-| M04 Attendance | ● | | | |
-| M05 Leave Management | ● | | | |
-| M06 Approval Engine | ● | | ○ | Dipakai ulang untuk payroll di F3 |
-| M07 Task Management | | ● | | Termasuk task rutin harian |
-| M08 KPI & Evaluasi | | ● | | |
-| M09 Dashboard | ● | ○ | ○ | Widget tugas/KPI ditambah di F2, payroll di F3 |
-| M10 Reports | ● | ○ | ○ | Laporan tugas/KPI di F2, payroll di F3 |
-| M11 Notifications | ● | ○ | ○ | Event baru ditambah per fase |
-| M12 Settings & Audit Log | ● | ○ | ○ | |
-| M13 Payroll | | | ● | |
-| M14 Recruitment, Onboarding, Offboarding | | | ● | |
+| Modul | Phase 1 (Foundation) | Phase 2 (User Portal) | Phase 3 (Management Backend) | Phase 4 (Perf & Payroll) | Phase 5 (QA & Hardening) | Catatan |
+|---|:---:|:---:|:---:|:---:|:---:|---|
+| M01 Autentikasi & Akun | ● | | | | ○ | Sanctum, RBAC, session |
+| M02 Organisasi & Karyawan | ● | | ○ | | | 4 Departemen Kurma Group |
+| M03 Employee Management | | | ● | | ○ | Mutasi, profil, histori |
+| M04 Attendance (QR Code) | | ● | ● | | ○ | Scanner user + display QR admin |
+| M05 Leave Management | | ● | ● | | ○ | Form izin/cuti + kalender |
+| M06 Approval Engine | | | ● | ○ | ○ | Cuti, koreksi, daily report |
+| **M07 Daily Report (Spreadsheet)** | | **●** | **●** | | **○** | **Fitur Utama: Spreadsheet input & review** |
+| M08 KPI & Evaluasi | | | | ● | ○ | Template jabatan & rekap |
+| M09 Dashboard | | ● | ● | ○ | ○ | Dual portal dashboard |
+| M10 Reports & Export | | | | ● | ○ | Excel/PDF reporting |
+| M11 Notifications | | ● | ● | ○ | ○ | Notifikasi real-time & log |
+| M12 Settings & Audit Log | ● | | ● | ○ | ○ | Granular RBAC & audit trail |
+| M13 Payroll Management | | | | ● | ○ | Privasi ketat & slip gaji |
+| M14 Rekrutmen & Onboarding | | | | ○ | ○ | Modul pelengkap |
 
-● = dirilis penuh pada fase itu, ○ = ditambah/diperluas pada fase itu.
+● = target rilis modul, ○ = penguatan / penambahan fitur pada fase terkait.
 
 ```mermaid
 flowchart LR
-    F0["Fase 0<br/>Persiapan dan keputusan"] --> F1a["Fase 1<br/>Fondasi sistem"]
-    F1a --> F1b["Fase 2<br/>Employee Management"]
-    F1b --> F1c["Fase 3<br/>Absensi dan Cuti"]
-    F1c --> F1d["Fase 4<br/>Dashboard dan Laporan"]
-    F1d --> R1(["Rilis MVP"])
-    R1 --> F2["Fase 5<br/>Task dan KPI"]
-    F2 --> R2(["Rilis F2"])
-    R2 --> F3["Fase 6<br/>Payroll, Rekrutmen, On/Offboarding"]
-    F3 --> R3(["Rilis F3"])
+    P1["Phase 1<br/>Foundation:<br/>Organisasi, Auth, RBAC, Dual Layout"] --> P2["Phase 2<br/>User Portal:<br/>Dashboard, QR Scan, Leave, Daily Report"]
+    P2 --> P3["Phase 3<br/>Management Backend:<br/>Employee, QR Display, Approval, Review Report"]
+    P3 --> P4["Phase 4<br/>Performance & Payroll:<br/>KPI, Payroll Isolasi, Slip Gaji, Export"]
+    P4 --> P5["Phase 5<br/>QA & Security:<br/>Uji Permission, Anti Double-Scan, Audit Hardening"]
 ```
 
 ---
@@ -263,61 +280,61 @@ Diberikan otomatis ke **semua pengguna yang terhubung ke data karyawan**, apa pu
 | `leave.request` | Mengajukan dan membatalkan cuti/izin sendiri | F1 |
 | `leave.view.own` | Melihat pengajuan dan saldo cuti sendiri | F1 |
 | `leave.calendar.view` | Melihat kalender cuti departemen sendiri (K-11) | F1 |
-| `task.view.own`, `task.update.own` | Melihat tugas sendiri; memperbarui progres, bukti, komentar | F2 |
-| `kpi.view.own`, `kpi.update.own` | Melihat KPI sendiri; mengisi realisasi dan tanggapan | F2 |
-| `payroll.slip.view.own` | Melihat slip gaji sendiri | F3 |
+| `daily_report.submit` | Mengisi, menyimpan draf, dan submit Daily Report harian | Phase 2 |
+| `daily_report.view.own` | Melihat riwayat Daily Report sendiri | Phase 2 |
+| `kpi.view.own`, `kpi.update.own` | Melihat KPI sendiri; mengisi realisasi dan tanggapan | Phase 4 |
+| `payroll.slip.view.own` | Melihat slip gaji sendiri | Phase 4 |
 
 ### 6.4 Matriks permission per role
 
-Kolom: **MGR** Department Manager · **OPS** Operations Manager · **HR** HR Admin · **FIN** Finance Staff · **MGT** Management Viewer · **SA** System Admin.  
+Kolom: **MGR** Department Manager · **OPS** Operations Manager · **HR** HR Admin · **FIN** Finance Staff · **MGT** Management Viewer/Owner · **SA** System Admin.  
 ✔ = diberikan default · – = tidak · ◐ = diberikan per orang yang ditunjuk, bukan per role.
 
 | Permission | Arti | MGR | OPS | HR | FIN | MGT | SA | Fase |
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | **Akun & sistem** | | | | | | | | |
-| `user.manage` | Membuat/menonaktifkan akun, reset password | – | – | ✔ | – | – | ✔ | F1 |
-| `rbac.manage` | Mengelola role dan permission | – | – | – | – | – | ✔ | F1 |
-| `settings.general.manage` | Pengaturan umum dan profil perusahaan | – | – | – | – | – | ✔ | F1 |
-| `settings.org.manage` | Departemen, jabatan, lokasi kerja | – | – | ✔ | – | – | ✔ | F1 |
-| `settings.attendance.manage` | Jadwal kerja, hari libur, aturan absensi | – | – | ✔ | – | – | ✔ | F1 |
-| `settings.leave.manage` | Jenis cuti dan kebijakan saldo | – | – | ✔ | – | – | ✔ | F1 |
-| `settings.approval.manage` | Alur approval dan approver cadangan | – | – | ✔ | – | – | ✔ | F1 |
-| `audit.view` | Melihat audit log | – | – | ✔ | – | – | ✔ | F1 |
+| `user.manage` | Membuat/menonaktifkan akun, reset password | – | – | ✔ | – | – | ✔ | Phase 1 |
+| `rbac.manage` | Mengelola role dan permission | – | – | – | – | – | ✔ | Phase 1 |
+| `settings.general.manage` | Pengaturan umum dan profil perusahaan | – | – | – | – | – | ✔ | Phase 1 |
+| `settings.org.manage` | Departemen, jabatan, lokasi kerja | – | – | ✔ | – | – | ✔ | Phase 1 |
+| `settings.attendance.manage` | Jadwal kerja, hari libur, dynamic QR screen | – | – | ✔ | – | – | ✔ | Phase 3 |
+| `settings.leave.manage` | Jenis cuti dan kebijakan saldo | – | – | ✔ | – | – | ✔ | Phase 3 |
+| `settings.approval.manage` | Alur approval dan approver cadangan | – | – | ✔ | – | – | ✔ | Phase 3 |
+| `audit.view` | Melihat audit log | – | – | ✔ | – | – | ✔ | Phase 1 |
 | **Karyawan** | | | | | | | | |
-| `employee.view.team` | Melihat profil non-sensitif tim | ✔ | ✔ | ✔ | – | – | – | F1 |
-| `employee.view.all` | Melihat profil non-sensitif semua karyawan | – | ✔ | ✔ | ✔ | ✔ | ✔ | F1 |
-| `employee.sensitive.view` | Melihat KTP, BPJS, dokumen pribadi | – | – | ✔ | – | – | – | F1 |
-| `employee.bank.view` | Melihat rekening bank dan NPWP | – | – | ✔ | ✔ | – | – | F1 |
-| `employee.manage` | Tambah, ubah, mutasi, nonaktifkan, reaktivasi | – | – | ✔ | – | – | – | F1 |
-| `employee.document.manage` | Unggah/hapus dokumen karyawan | – | – | ✔ | – | – | – | F1 |
-| `employee.import_export` | Impor dan ekspor data karyawan | – | – | ✔ | – | – | – | F1 |
-| **Absensi** | | | | | | | | |
-| `attendance.view.team` | Melihat absensi tim | ✔ | ✔ | ✔ | – | – | – | F1 |
-| `attendance.view.all` | Melihat absensi semua karyawan | – | ✔ | ✔ | – | ✔ | – | F1 |
-| `attendance.correction.approve` | Memutuskan koreksi absensi (sebagai approver) | ✔ | ✔ | ✔ | – | – | – | F1 |
-| `attendance.manage` | Input/ubah manual, kunci dan buka periode | – | – | ✔ | – | – | – | F1 |
-| `attendance.export` | Ekspor rekap absensi sesuai cakupan lihat | ✔ | ✔ | ✔ | – | ✔ | – | F1 |
+| `employee.view.team` | Melihat profil non-sensitif tim | ✔ | ✔ | ✔ | – | – | – | Phase 3 |
+| `employee.view.all` | Melihat profil non-sensitif semua karyawan | – | ✔ | ✔ | ✔ | ✔ | ✔ | Phase 3 |
+| `employee.sensitive.view` | Melihat KTP, BPJS, dokumen pribadi | – | – | ✔ | – | – | – | Phase 3 |
+| `employee.bank.view` | Melihat rekening bank dan NPWP | – | – | ✔ | ✔ | – | – | Phase 3 |
+| `employee.manage` | Tambah, ubah, mutasi, nonaktifkan, reaktivasi | – | – | ✔ | – | – | – | Phase 3 |
+| `employee.document.manage` | Unggah/hapus dokumen karyawan | – | – | ✔ | – | – | – | Phase 3 |
+| `employee.import_export` | Impor dan ekspor data karyawan | – | – | ✔ | – | – | – | Phase 3 |
+| **Absensi (QR Code)** | | | | | | | | |
+| `attendance.view.team` | Melihat absensi tim | ✔ | ✔ | ✔ | – | – | – | Phase 3 |
+| `attendance.view.all` | Melihat absensi semua karyawan | – | ✔ | ✔ | – | ✔ | – | Phase 3 |
+| `attendance.correction.approve` | Memutuskan koreksi absensi (sebagai approver) | ✔ | ✔ | ✔ | – | – | – | Phase 3 |
+| `attendance.manage` | Input/ubah manual, kunci periode, generate QR | – | – | ✔ | – | – | – | Phase 3 |
+| `attendance.export` | Ekspor rekap absensi sesuai cakupan lihat | ✔ | ✔ | ✔ | – | ✔ | – | Phase 3 |
 | **Cuti & approval** | | | | | | | | |
-| `leave.view.team` | Melihat pengajuan dan saldo cuti tim | ✔ | ✔ | ✔ | – | – | – | F1 |
-| `leave.view.all` | Melihat pengajuan dan saldo semua karyawan | – | – | ✔ | – | ✔ | – | F1 |
-| `leave.approve` | Memutuskan cuti/izin (tahap atasan) | ✔ | ✔ | ✔ | – | – | – | F1 |
-| `leave.validate` | Memutuskan cuti/izin (tahap HR) | – | – | ✔ | – | – | – | F1 |
-| `leave.manage` | Ajukan atas nama, batalkan setelah mulai, kelola saldo | – | – | ✔ | – | – | – | F1 |
-| `approval.delegate.own` | Menunjuk pengganti untuk approval sendiri | ✔ | ✔ | ✔ | – | – | – | F1 |
-| `approval.reassign` | Mengalihkan approver, mengatur delegasi orang lain | – | – | ✔ | – | – | – | F1 |
-| **Tugas** | | | | | | | | |
-| `task.view.team` | Melihat tugas tim | ✔ | ✔ | – | – | – | – | F2 |
-| `task.view.all` | Melihat tugas semua departemen | – | ✔ | – | – | ✔ | – | F2 |
-| `task.assign.team` | Membuat dan menugaskan tugas ke tim sendiri | ✔ | ✔ | – | – | – | – | F2 |
-| `task.assign.cross_department` | Menugaskan tugas ke departemen lain | – | ✔ | – | – | – | – | F2 |
-| `task.review` | Menyetujui hasil atau meminta revisi | ✔ | ✔ | – | – | – | – | F2 |
-| `task.template.manage` | Mengelola template task rutin | ✔ | ✔ | – | – | – | – | F2 |
+| `leave.view.team` | Melihat pengajuan dan saldo cuti tim | ✔ | ✔ | ✔ | – | – | – | Phase 3 |
+| `leave.view.all` | Melihat pengajuan dan saldo semua karyawan | – | – | ✔ | – | ✔ | – | Phase 3 |
+| `leave.approve` | Memutuskan cuti/izin (tahap atasan) | ✔ | ✔ | ✔ | – | – | – | Phase 3 |
+| `leave.validate` | Memutuskan cuti/izin (tahap HR) | – | – | ✔ | – | – | – | Phase 3 |
+| `leave.manage` | Ajukan atas nama, batalkan setelah mulai, kelola saldo | – | – | ✔ | – | – | – | Phase 3 |
+| `approval.delegate.own` | Menunjuk pengganti untuk approval sendiri | ✔ | ✔ | ✔ | – | – | – | Phase 3 |
+| `approval.reassign` | Mengalihkan approver, mengatur delegasi orang lain | – | – | ✔ | – | – | – | Phase 3 |
+| **Daily Report (Spreadsheet)** | | | | | | | | |
+| `daily_report.view.team` | Melihat Daily Report tim sendiri | ✔ | ✔ | – | – | – | – | Phase 3 |
+| `daily_report.view.all` | Melihat Daily Report lintas-departemen | – | ✔ | – | – | ✔ | – | Phase 3 |
+| `daily_report.review_team` | Menyetujui (Accept) atau Minta Revisi (Request Revision) | ✔ | ✔ | – | – | – | – | Phase 3 |
+| `daily_report.template.manage` | Mengelola template kolom tambahan per departemen | – | – | ✔ | – | – | ✔ | Phase 3 |
+| `daily_report.export` | Ekspor rekap Daily Report ke Excel | ✔ | ✔ | ✔ | – | ✔ | – | Phase 3 |
 | **KPI** | | | | | | | | |
-| `kpi.view.team` | Melihat KPI tim | ✔ | ✔ | – | – | – | – | F2 |
-| `kpi.view.all` | Melihat rekap KPI semua karyawan | – | – | ✔ | – | ✔ | – | F2 |
-| `kpi.target.set` | Menetapkan target KPI tim | ✔ | ✔ | – | – | – | – | F2 |
-| `kpi.review` | Menilai dan memberi catatan KPI tim | ✔ | ✔ | – | – | – | – | F2 |
-| `kpi.manage` | Periode, template, grade, penutupan periode | – | – | ✔ | – | – | – | F2 |
+| `kpi.view.team` | Melihat KPI tim | ✔ | ✔ | – | – | – | – | Phase 4 |
+| `kpi.view.all` | Melihat rekap KPI semua karyawan | – | – | ✔ | – | ✔ | – | Phase 4 |
+| `kpi.target.set` | Menetapkan target KPI tim | ✔ | ✔ | – | – | – | – | Phase 4 |
+| `kpi.review` | Menilai dan memberi catatan KPI tim | ✔ | ✔ | – | – | – | – | Phase 4 |
+| `kpi.manage` | Periode, template, grade, penutupan periode | – | – | ✔ | – | – | – | Phase 4 |
 | **Laporan** | | | | | | | | |
 | `report.export` | Ekspor laporan sesuai cakupan lihat tiap modul | ✔ | ✔ | ✔ | ✔ | ✔ | – | F1 |
 | **Payroll** | | | | | | | | |
@@ -558,36 +575,34 @@ Penanda tambahan (bukan status): **lupa clock-out** (`is_incomplete`), **pulang 
 
 | ID | Requirement | Prioritas |
 |---|---|:-:|
-| FR-ATT-01 | Clock-in dengan satu tombol. Waktu diambil dari **server**; sistem menyimpan waktu (UTC), zona waktu, IP, dan perangkat. Hanya sekali per tanggal kerja | W |
-| FR-ATT-02 | Clock-out hanya setelah clock-in pada tanggal kerja yang sama, paling lambat 23.59 waktu lokal. Sistem menghitung durasi kerja dikurangi menit istirahat pada jadwal | W |
-| FR-ATT-03 | Status otomatis: Hadir bila clock-in ≤ jam masuk + toleransi; selain itu Terlambat dengan menit terlambat dihitung **dari jam masuk**. Clock-out sebelum jam pulang mengisi menit pulang cepat | W |
-| FR-ATT-04 | *Job tutup hari* (berjalan setelah tengah malam waktu lokal tiap lokasi kerja) membuat status Alpa bagi karyawan aktif yang tidak clock-in pada hari kerja dan tidak punya cuti/izin disetujui | W |
-| FR-ATT-05 | Job tutup hari menandai record yang punya clock-in tanpa clock-out sebagai **lupa clock-out**; durasi kerja kosong sampai dikoreksi; karyawan diberi notifikasi | W |
-| FR-ATT-06 | Koreksi absensi: karyawan memilih tanggal, mengisi jam masuk dan/atau jam pulang usulan, alasan, dan lampiran opsional. Diputuskan lewat approval engine (M06). Batas waktu mengikuti K-06 | W |
-| FR-ATT-07 | Koreksi yang disetujui memperbarui record, menghitung ulang status, dan menyimpan nilai sebelum–sesudah di audit log. Koreksi yang ditolak tidak mengubah apa pun | W |
-| FR-ATT-08 | Sinkron dengan cuti: tanggal yang punya cuti/izin disetujui otomatis berstatus Cuti/Sakit/Izin, dan clock-in pada tanggal itu diblokir dengan penjelasan | W |
-| FR-ATT-09 | Kunci periode: HR mengunci rekap satu bulan. Setelah dikunci, record bulan itu tidak bisa diubah atau dikoreksi sampai HR membukanya kembali dengan alasan | W |
-| FR-ATT-10 | HR dapat menambah atau mengubah record secara manual dengan alasan wajib; sumber record tercatat sebagai input HR | W |
-| FR-ATT-11 | Riwayat pribadi: tampilan bulanan berisi status per hari dan ringkasan (hadir, terlambat, izin, sakit, cuti, alpa, total jam kerja) | W |
-| FR-ATT-12 | Absensi tim/semua: tampilan harian (hadir, terlambat, belum absen, cuti/izin) dan rekap per karyawan untuk periode mingguan atau bulanan; filter departemen, tanggal, status | W |
-| FR-ATT-13 | Ekspor rekap harian, mingguan, dan bulanan ke Excel dan PDF | W |
-| FR-ATT-14 | Jadwal kerja: nama, hari kerja, jam masuk, jam pulang, menit istirahat, toleransi terlambat. Ada satu jadwal default; jadwal lain bisa ditetapkan per karyawan | W |
-| FR-ATT-15 | Hari libur: tanggal, nama, jenis (nasional, cuti bersama, perusahaan), berlaku untuk semua atau lokasi tertentu; bisa diimpor dari Excel | W |
-| FR-ATT-16 | Clock-in pada hari libur atau di luar hari kerja diperbolehkan, ditandai masuk di hari libur, dan tidak dihitung terlambat | S |
-| FR-ATT-17 | Pembatasan jaringan (mati secara default): clock-in hanya dari IP kantor yang terdaftar pada lokasi kerja, dengan pengecualian per karyawan | O |
+| FR-ATT-01 | **Absen Pagi & Absen Sore via Dynamic QR Code:** Sistem membedakan secara eksplisit **Absen Pagi (Jam Masuk)** dan **Absen Sore (Jam Pulang)**. Karyawan membuka scanner kamera di User Portal, memilih atau secara otomatis memindai QR kantor. Waktu diverifikasi dari **server**; sistem mencatat waktu server WIB, lokasi, dan IP | W |
+| FR-ATT-02 | **Aturan Absen Pagi:** Jam kerja kantor 08:00 - 09:00 WIB. Absen setelah pukul 09:00 WIB otomatis berstatus Terlambat (`late`). Jika karyawan sudah absen pagi, sistem menampilkan jam masuk dan memblokir scan ulang absen pagi | W |
+| FR-ATT-03 | **Aturan Absen Sore:** Jam pulang kantor mulai pukul 17:00 WIB. Absen sore mencatat jam kepulangan (`time_out`), status kepulangan cepat jika < 17:00 WIB, dan otomatis menghitung total durasi kerja harian | W |
+| FR-ATT-04 | **Antarmuka User Portal Dual Cards:** Halaman Kehadiran Saya (P-08) menyajikan kartu interaktif terpisah untuk **Absen Pagi (Masuk)** dan **Absen Sore (Pulang)**, lengkap dengan jam realtime kantor WIB, badge status, dan tombol scan dedicated | W |
+| FR-ATT-05 | *Job tutup hari* (berjalan setelah tengah malam) membuat status Alpa bagi karyawan aktif yang tidak melakukan absen pagi dan tidak punya perizinan kerja disetujui | W |
+| FR-ATT-06 | Job tutup hari menandai record yang punya Absen Pagi tanpa Absen Sore sebagai **lupa absen sore / clock-out**; durasi kerja kosong sampai dikoreksi | W |
+| FR-ATT-07 | Koreksi absensi: karyawan memilih tanggal, mengisi usulan jam Absen Pagi dan jam Absen Sore, serta alasan koreksi. Diputuskan oleh atasan / HR (M06) | W |
+| FR-ATT-08 | Koreksi yang disetujui memperbarui jam absen pagi/sore record, menghitung ulang status, dan menyimpan nilai sebelum–sesudah di audit log | W |
+| FR-ATT-09 | Sinkron dengan perizinan: tanggal yang memiliki perizinan disetujui (sakit, acara keluarga, dll) otomatis berstatus Izin/Sakit, dan absen pagi diblokir | W |
+| FR-ATT-10 | Kunci periode: HR mengunci rekap bulanan sebelum penggajian; perubahan setelah kunci membutuhkan pembukaan khusus | W |
+| FR-ATT-11 | HR dapat menambah atau mengubah record secara manual dengan alasan wajib dan tercatat di audit log | W |
+| FR-ATT-12 | Riwayat pribadi: tabel riwayat menampilkan kolom terpisah **Absen Pagi (Masuk)**, **Absen Sore (Pulang)**, status harian, dan durasi kerja | W |
+| FR-ATT-13 | Absensi tim/semua: monitoring harian Admin Attendance (P-09) menampilkan log Absen Pagi & Sore seluruh karyawan secara realtime | W |
+| FR-ATT-14 | Ekspor rekap harian, mingguan, dan bulanan ke Excel dan PDF | W |
+| FR-ATT-15 | Jadwal kerja: jam masuk (08:00), batas toleransi masuk (09:00), jam pulang (17:00) | W |
+| FR-ATT-16 | Hari libur nasional dan cuti bersama | W |
+| FR-ATT-17 | **Dynamic QR Generator (Admin Display):** Halaman Management Backend & Terminal Layar Penuh (TV) untuk menampilkan QR Code dinamis yang berotasi otomatis setiap 45–60 detik di kantor untuk melayani Absen Pagi dan Sore | W |
+| FR-ATT-18 | **Validasi Keamanan QR Server:** Backend memverifikasi token rahasia berotasi, menolak token kedaluwarsa atau token palsu browser, dan memblokir scan ganda (double submission) | W |
 
 #### Aturan bisnis
 
-- BR-ATT-01 — Satu record per karyawan per tanggal kerja.
-- BR-ATT-02 — Tanggal kerja ditentukan dari waktu lokal **lokasi kerja karyawan** saat clock-in, bukan zona waktu server atau perangkat.
-- BR-ATT-03 — Semua waktu disimpan dalam UTC dan ditampilkan dalam zona waktu lokasi kerja pemilik record.
-- BR-ATT-04 — Jam masuk/pulang terjadwal disalin ke record saat dibuat, sehingga perubahan jadwal di kemudian hari tidak mengubah status hari-hari lalu.
-- BR-ATT-05 — Tanggal yang punya cuti/izin disetujui tidak bisa di-clock-in. Bila karyawan ternyata masuk, cuti hari itu dibatalkan atau dipendekkan dulu (FR-LEV-09).
-- BR-ATT-06 — Absensi hanya dihitung dari tanggal bergabung sampai tanggal keluar.
-- BR-ATT-07 — Hanya satu pengajuan koreksi yang boleh menunggu keputusan untuk satu tanggal.
-- BR-ATT-08 — Jam pulang usulan harus setelah jam masuk; koreksi tidak boleh untuk tanggal mendatang atau periode terkunci.
-- BR-ATT-09 — Rekap (mingguan maupun bulanan) menghitung: hari kerja, hadir (termasuk terlambat), terlambat, total menit terlambat, izin, sakit, cuti, alpa, lupa clock-out, total jam kerja.
-- BR-ATT-10 — Waktu dari perangkat pengguna tidak pernah dipakai untuk pencatatan.
+- BR-ATT-01 — Satu record Absen Pagi dan satu record Absen Sore per karyawan per tanggal kerja.
+- BR-ATT-02 — Tanggal kerja ditentukan dari waktu lokal **lokasi kerja karyawan** saat scan (WIB), bukan zona waktu browser.
+- BR-ATT-03 — Semua waktu absensi disimpan dalam UTC dan ditampilkan dalam zona waktu lokal karyawan.
+- BR-ATT-04 — Validasi QR Code dilakukan 100% di server; browser tidak boleh menentukan status atau waktu scan.
+- BR-ATT-05 — Token QR Code memiliki masa berlaku singkat (rolling window) untuk mencegah QR difoto dan disebarkan ke luar kantor.
+- BR-ATT-06 — Tanggal yang punya cuti/izin disetujui tidak bisa di-clock-in.
+- BR-ATT-07 — Koreksi absensi hanya bisa diajukan maksimal 7 hari setelah tanggal kerja dan tidak berlaku pada periode yang sudah terkunci.
 
 #### Alur
 
@@ -644,55 +659,42 @@ Status pengajuan koreksi: `pending` (Menunggu) → `approved` (Disetujui) / `rej
 
 ---
 
-### M05 — Leave Management (F1)
+### M05 — Permission & Leave Management (Perizinan Kerja) (F1)
 
-**Tujuan.** Pengajuan cuti/izin yang tervalidasi otomatis, saldo yang selalu konsisten, dan keputusan yang terlacak.  
-**Aktor.** Semua karyawan (mengajukan), atasan (memutuskan), HR Admin (validasi, saldo, administrasi).  
-**Halaman.** P-11, P-12, P-13, P-14, P-22 (Jenis Cuti).
+**Tujuan.** Pengajuan perizinan kerja tidak masuk (izin sakit, ada acara, keperluan keluarga, atau keperluan mendesak) yang tervalidasi otomatis dan terlacak keputusannya oleh atasan. **Kurma Group tidak menerapkan sistem kuota cuti tahunan (No Annual Leave Balance); seluruh ketidakhadiran yang sah diproses melalui pengajuan perizinan kerja.**  
+**Aktor.** Semua karyawan (mengajukan), atasan (meninjau & menyetujui), HR Admin (monitoring & administrasi).  
+**Halaman.** P-11 (Pengajuan Izin Saya), P-12 (Persetujuan Izin).
 
-#### Jenis cuti default (contoh awal, semua bisa diubah di Pengaturan)
+#### Jenis perizinan resmi
 
-| Kode | Nama | Memotong saldo | Lampiran wajib | Validasi HR | Pengajuan mundur | Status absensi | Batas lain |
-|---|---|:-:|---|:-:|---|---|---|
-| `ANNUAL` | Cuti Tahunan | Ya | Tidak | Ya | Tidak; minimal H-3 | Cuti | Sebatas saldo |
-| `SICK` | Sakit | Tidak | Ya bila lebih dari 1 hari | Tidak | Ya, maks. 3 hari | Sakit | – |
-| `PERMIT` | Izin | Tidak | Tidak | Tidak | Ya, maks. 1 hari | Izin | Maks. 2 hari per pengajuan |
-| `SPECIAL` | Cuti Khusus (menikah, duka, dan sejenisnya) | Tidak | Ya | Ya | Ya, maks. 3 hari | Cuti | Sesuai kebijakan |
-| `MATERNITY` | Cuti Melahirkan | Tidak | Ya | Ya | Tidak | Cuti | Dihitung hari kalender |
-| `UNPAID` | Cuti Tanpa Dibayar | Tidak | Tidak | Ya | Tidak | Cuti | Sesuai kebijakan |
-
-Atribut tiap jenis cuti: memotong saldo, cara hitung hari (hari kerja / hari kalender), lampiran wajib setelah N hari, perlu validasi HR, minimal pengajuan H-N, maksimal mundur N hari, maksimal hari per pengajuan, dibayar/tidak, status absensi yang dihasilkan, aktif/nonaktif.
+| Kode | Nama | Lampiran Wajib | Persetujuan | Status Absensi | Keterangan |
+|---|---|:-:|:-:|---|---|
+| `SICK` | Izin Sakit | Opsional (Wajib jika > 1 hari / surat dokter) | Atasan Langsung | Sakit | Karyawan berhalangan karena kondisi kesehatan |
+| `EVENT` | Izin Ada Acara | Opsional (Surat undangan / bukti acara jika ada) | Atasan Langsung | Izin | Menghadiri acara penting, pernikahan, dll |
+| `FAMILY` | Izin Keperluan Keluarga | Opsional | Atasan Langsung | Izin | Urusan keluarga mendesak / duka cita |
+| `URGENT` | Izin Mendesak / Darurat | Opsional | Atasan Langsung | Izin | Keadaan mendesak tiba-tiba |
+| `OTHER` | Izin Lainnya | Opsional | Atasan Langsung | Izin | Keperluan lain dengan alasan tertulis |
 
 #### Functional requirements
 
 | ID | Requirement | Prioritas |
 |---|---|:-:|
-| FR-LEV-01 | Form pengajuan: jenis, tanggal mulai, tanggal selesai, alasan (min. 10 karakter), lampiran sesuai aturan jenis. Sebelum dikirim, sistem menampilkan jumlah hari terhitung dan sisa saldo setelah pengajuan | W |
-| FR-LEV-02 | Jumlah hari dihitung otomatis dari jadwal kerja karyawan dan daftar hari libur (atau hari kalender, sesuai pengaturan jenis cuti) | W |
-| FR-LEV-03 | Validasi saat kirim: rentang tanggal sah, tidak bentrok dengan pengajuan lain yang masih aktif, saldo cukup, batas hari, batas maju/mundur, lampiran wajib | W |
-| FR-LEV-04 | Persetujuan memakai approval engine: atasan langsung → HR bila jenis cuti mewajibkan (K-01) | W |
-| FR-LEV-05 | Saldo: saat diajukan jumlah hari **dicadangkan**; saat disetujui final menjadi terpakai; saat ditolak/dibatalkan dilepas | W |
-| FR-LEV-06 | Halaman Cuti Saya: kartu saldo per jenis (jatah, terpakai, dicadangkan, sisa) dan daftar pengajuan beserta status serta linimasa keputusan | W |
-| FR-LEV-07 | Pembatalan oleh pemohon: bebas selama masih menunggu; setelah disetujui masih boleh sampai sehari sebelum tanggal mulai (atasan dan HR diberi tahu) | W |
-| FR-LEV-08 | Penolakan wajib disertai alasan (min. 10 karakter) yang terlihat oleh pemohon | W |
-| FR-LEV-09 | HR dapat mengajukan atas nama karyawan, serta membatalkan atau memendekkan cuti yang sudah berjalan, dengan alasan wajib. Saldo dan absensi menyesuaikan | W |
-| FR-LEV-10 | HR mengelola saldo: melihat semua saldo, menambah/mengurangi dengan alasan, dan mengisi saldo awal saat migrasi | W |
-| FR-LEV-11 | Saldo tahunan dibentuk otomatis tiap 1 Januari sesuai K-05. Karyawan yang baru memenuhi syarat masa kerja di tengah tahun mendapat saldo pada tanggal itu (jatah penuh atau prorata, sesuai pengaturan) | W |
-| FR-LEV-12 | Kalender cuti bulanan: manager melihat timnya beserta jenis; staff melihat rekan sedepartemen tanpa jenis dan alasan (K-11); HR melihat semua | W |
-| FR-LEV-13 | Pengingat approver: menunggu lebih dari 1 hari kerja → diingatkan; lebih dari 3 hari kerja → HR diberi tahu | S |
-| FR-LEV-14 | Saat cuti disetujui final, record absensi pada tanggal terkait diisi sesuai status jenis cuti (FR-ATT-08) | W |
-| FR-LEV-15 | Saat memutuskan, approver melihat siapa saja di tim yang cuti pada tanggal yang sama (peringatan, tidak memblokir) | S |
-| FR-LEV-16 | Jenis cuti dikelola dari Pengaturan: tambah, ubah aturan, nonaktifkan | W |
+| FR-LEV-01 | Form pengajuan izin: jenis perizinan, tanggal mulai, tanggal selesai, alasan (wajib), lampiran surat/bukti (opsional) | W |
+| FR-LEV-02 | Jumlah hari izin dihitung otomatis dari rentang tanggal pengajuan | W |
+| FR-LEV-03 | Validasi saat kirim: tanggal sah, tanggal selesai ≥ tanggal mulai, alasan terisi | W |
+| FR-LEV-04 | Persetujuan oleh atasan langsung: Setujui (Approved) atau Tolak (Rejected) disertai catatan | W |
+| FR-LEV-05 | Halaman Pengajuan Izin Saya: kartu statistik perizinan (total tiket, sakit, acara/keperluan) dan riwayat pengajuan beserta status | W |
+| FR-LEV-06 | Pembatalan oleh pemohon selama pengajuan masih berstatus pending | W |
+| FR-LEV-07 | Penolakan oleh atasan dapat disertai alasan yang terlihat oleh pemohon | W |
+| FR-LEV-08 | Saat izin disetujui, record absensi pada tanggal terkait tercatat sesuai status izin (Sakit / Izin) | W |
+| FR-LEV-09 | Manager melihat pengajuan izin timnya; HR dapat melihat seluruh perizinan perusahaan | W |
 
 #### Aturan bisnis
 
-- BR-LEV-01 — Sisa saldo = jatah + carry-over + penyesuaian − terpakai − dicadangkan. Tidak boleh negatif kecuali lewat penyesuaian HR.
-- BR-LEV-02 — Pengajuan yang melintasi pergantian tahun dihitung terpisah per tahun saldo.
-- BR-LEV-03 — Jenis cuti yang tidak memotong saldo tetap dicatat jumlah harinya untuk laporan.
-- BR-LEV-04 — Pengajuan tidak bisa diubah setelah dikirim. Untuk mengubah: batalkan lalu ajukan ulang.
-- BR-LEV-05 — Tanggal yang tumpang-tindih dengan pengajuan lain milik karyawan yang sama (menunggu atau disetujui) ditolak.
-- BR-LEV-06 — Rentang yang menghasilkan 0 hari (seluruhnya hari libur/non-hari kerja) ditolak.
-- BR-LEV-07 — Perubahan jadwal kerja atau hari libur setelah cuti disetujui tidak mengubah jumlah hari yang sudah diputuskan, kecuali HR menghitung ulang.
+- BR-LEV-01 — **Tidak ada saldo/kuota cuti tahunan.** Tidak ada potongan saldo cuti 12 hari per tahun. Pengajuan dievaluasi murni berdasarkan kelayakan alasan dan persetujuan atasan.
+- BR-LEV-02 — Pengajuan izin yang tumpang tindih pada tanggal yang sama untuk karyawan yang sama ditolak sistem.
+- BR-LEV-03 — Izin sakit lebih dari 1 hari dianjurkan mengunggah lampiran surat keterangan dokter.
+- BR-LEV-04 — Pengajuan tidak bisa diubah setelah dikirim; pemohon dapat membatalkan lalu mengajukan ulang jika diperlukan perbaikan.
 - BR-LEV-08 — Karyawan berstatus keluar terjadwal tidak bisa mengajukan cuti melewati tanggal keluarnya.
 - BR-LEV-09 — Lampiran pengajuan (mis. surat dokter) hanya bisa dibuka oleh pemohon, approver pada pengajuan itu, dan HR.
 
@@ -813,102 +815,90 @@ Status langkah: `waiting` (belum giliran) → `pending` (menunggu keputusan) →
 
 ---
 
-### M07 — Task Management (F2)
+### M07 — Daily Report (Spreadsheet-Style) (Phase 2 & Phase 3)
 
-**Tujuan.** Penugasan yang jelas pemilik, tenggat, dan hasilnya; ditambah task rutin harian berbentuk checklist. Modul ini menjabarkan "Task (by ceklis)" dan "task perhari" dari v1.  
-**Aktor.** Manager dan Manager Operasional (memberi dan mereview tugas), semua karyawan (mengerjakan).  
-**Halaman.** P-15, P-16, P-17.
+**Tujuan.** Menyediakan sarana pelaporan pekerjaan harian bagi karyawan dengan pengalaman interaktif mirip spreadsheet yang cepat, intuitif, dan terstruktur. Daily Report diisi setiap hari oleh seluruh karyawan untuk mendokumentasikan rincian aktivitas dan output kerja harian. **Sistem Daily Report tidak memerlukan persetujuan (approval/rejection) bertingkat dari admin atau atasan; melainkan atasan/manager dapat memantau dan memberikan catatan/feedback arahan kerja langsung kepada karyawan.**  
+**Aktor.** Seluruh karyawan (mengisi di User Portal), Department Manager & Operations Manager (memantau & memberi catatan di Management Backend), Owner & HR Admin (memantau rekap produktivitas).  
+**Halaman.** P-15 (User Portal: Daily Report Spreadsheet), P-16 (Management Backend: Monitoring & Catatan Daily Report).
 
-#### Functional requirements
+#### 7.1 Tabel Daily Report
 
-| ID | Requirement | Prioritas |
-|---|---|:-:|
-| FR-TSK-01 | Buat tugas: judul, deskripsi, departemen pemilik, PIC utama (satu orang), anggota terkait, reviewer (default: pembuat), prioritas, tanggal mulai (opsional), tenggat, lampiran, checklist | W |
-| FR-TSK-02 | Penugasan mengikuti cakupan: manager ke timnya; pemegang `task.assign.cross_department` ke departemen mana pun | W |
-| FR-TSK-03 | Status berpindah hanya lewat transisi yang diizinkan (lihat tabel transisi); setiap perpindahan tercatat di riwayat aktivitas | W |
-| FR-TSK-04 | Progres: otomatis dari checklist (item selesai ÷ total) bila ada checklist; manual 0–100% bila tidak ada | W |
-| FR-TSK-05 | Kirim untuk direview: PIC wajib menyertakan bukti hasil, minimal satu dari lampiran, tautan, atau catatan hasil | W |
-| FR-TSK-06 | Review: reviewer menyetujui (Selesai) atau meminta revisi dengan catatan wajib; jumlah putaran revisi dicatat | W |
-| FR-TSK-07 | Komentar pada tugas, berisi teks dan lampiran | W |
-| FR-TSK-08 | Menyebut nama (@) di komentar mengirim notifikasi ke orang tersebut | S |
-| FR-TSK-09 | Lampiran tugas: gambar, PDF, dokumen Office, maksimal 10 MB per file; atau tautan URL | W |
-| FR-TSK-10 | Tampilan: daftar (tabel), papan kanban per status, dan "Tugas Saya" (hari ini, minggu ini, terlambat) | W |
-| FR-TSK-11 | Filter: departemen, PIC, status, prioritas, rentang tenggat, pembuat; pencarian judul | W |
-| FR-TSK-12 | Pengingat tenggat: H-1 dan hari-H ke PIC; saat terlambat ke PIC dan reviewer | W |
-| FR-TSK-13 | Penanda terlambat otomatis: tenggat lewat dan status belum Selesai/Dibatalkan | W |
-| FR-TSK-14 | Pembatalan oleh pembuat atau manager dengan alasan; tugas dibatalkan tidak dihitung di KPI | W |
-| FR-TSK-15 | Reviewer dapat membuka kembali tugas Selesai (menjadi Revisi) dengan alasan | S |
-| FR-TSK-16 | **Task rutin:** template berisi judul, daftar item checklist, sasaran (jabatan, departemen, atau karyawan tertentu), pola ulang (setiap hari kerja / hari tertentu tiap minggu), dan perlu review atau tidak | W |
-| FR-TSK-17 | Sistem membuat task rutin otomatis untuk karyawan sasaran pada tiap hari kerja. Karyawan mencentang item; task yang belum tuntas sampai akhir hari menjadi **Terlewat** | W |
-| FR-TSK-18 | Halaman Checklist Harian: staff melihat checklist hari ini; manager melihat rekap kepatuhan tim per hari dan per minggu | W |
-| FR-TSK-19 | Manager dapat mengganti PIC; riwayat mencatat PIC lama dan baru | W |
-| FR-TSK-20 | Data tugas memasok indikator KPI otomatis (M08): persentase tugas selesai tepat waktu, persentase checklist harian tuntas, jumlah putaran revisi | W |
+Tabel laporan harian dirancang dengan kolom terstandar:
 
-#### Status dan transisi
-
-| Kode | Label |
-|---|---|
-| `todo` | Belum dimulai |
-| `in_progress` | Dikerjakan |
-| `in_review` | Menunggu review |
-| `revision` | Revisi |
-| `done` | Selesai |
-| `cancelled` | Dibatalkan |
-| `missed` | Terlewat (khusus task rutin) |
-
-| Dari → Ke | Pelaku | Syarat |
+| Kolom | Tipe Input | Fungsi & Aturan Validasi |
 |---|---|---|
-| Belum dimulai → Dikerjakan | PIC | – (otomatis saat item checklist pertama dicentang) |
-| Dikerjakan → Menunggu review | PIC | Bukti hasil terisi |
-| Menunggu review → Selesai | Reviewer | – |
-| Menunggu review → Revisi | Reviewer | Catatan revisi wajib |
-| Revisi → Menunggu review | PIC | Bukti hasil diperbarui |
-| Selesai → Revisi | Reviewer | Alasan wajib (buka kembali) |
-| Belum dimulai / Dikerjakan / Menunggu review / Revisi → Dibatalkan | Pembuat atau manager | Alasan wajib |
-| Dikerjakan → Selesai | Sistem | Hanya task rutin tanpa review, saat semua item tercentang |
-| Belum dimulai / Dikerjakan → Terlewat | Sistem | Hanya task rutin, saat hari berakhir |
+| **No.** | Otomatis | Nomor urut baris (1, 2, 3...) otomatis bertambah |
+| **Waktu Mulai** | Time (HH:mm) | Waktu mulai aktivitas kerja |
+| **Waktu Selesai** | Time (HH:mm) | Waktu selesai aktivitas (harus ≥ Waktu Mulai) |
+| **Aktivitas** | Teks | Deskripsi pekerjaan yang dilakukan (wajib diisi) |
+| **Hasil** | Teks | Hasil konkret / output pekerjaan (opsional saat draf, dianjurkan saat submit) |
+| **Status** | Pilihan | Status pekerjaan: `Pending`, `In Progress`, `Completed`, `Blocked` |
+| **Catatan** | Teks (opsional) | Informasi tambahan, tautan file, atau kendala yang dihadapi |
+
+#### 7.2 Interaksi Spreadsheet
+
+- **Manipulasi Baris:** Tombol tambah baris baru (+), edit sel secara instan (inline cell editing), duplikasi baris, dan hapus baris.
+- **Navigasi Keyboard:** Navigasi antar-sel dengan tombol panah, Tab, dan Enter layaknya spreadsheet modern.
+- **Autosave & Draft:** Sistem secara otomatis menyimpan perubahan lokal/draft setiap saat (*"Menyimpan...", "Tersimpan"*).
+- **Validasi Konsistensi:** Waktu selesai tidak boleh lebih awal dari waktu mulai; baris yang disubmit memiliki deskripsi aktivitas.
+- **Submit Laporan:** Tombol "Simpan & Kirim Laporan"; setelah dikirim status ditandai sebagai `submitted` (Sudah Diisi). Karyawan tetap dapat memperbarui aktivitas hari tersebut jika ada pekerjaan tambahan.
+- **Riwayat & Filter:** Pemilih tanggal (*date picker*) untuk melihat laporan hari-hari sebelumnya, memfilter berdasarkan bulan, atau memeriksa catatan dari atasan.
+- **Template Departemen:** Tersedia template cepat untuk Herbal (HRB), Fashion (FSH), Shopee Video (SPV), dan Operasional Kantor.
+
+#### 7.3 Status dan Alur Catatan (Tanpa Approval)
+
+Sistem menyederhanakan alur kerja agar cepat dan tidak menghambat operasional harian:
+
+| Kode Status | Label | Penjelasan |
+|---|---|---|
+| `draft` | Draft | Karyawan sedang mengisi aktivitas, belum dikirim sebagai laporan final hari tersebut |
+| `submitted` | Sudah Diisi (Terkirim) | Laporan hari tersebut telah disimpan dan diserahkan; tampil di dashboard monitoring atasan |
+| *(Catatan Atasan)* | Ada Catatan / Feedback | Atasan telah membaca dan meninggalkan catatan/masukan tanpa memblokir atau menolak laporan |
 
 ```mermaid
 stateDiagram-v2
-    [*] --> BelumDimulai: Tugas dibuat
-    BelumDimulai --> Dikerjakan: PIC mulai
-    Dikerjakan --> MenungguReview: PIC kirim bukti hasil
-    MenungguReview --> Selesai: Reviewer menyetujui
-    MenungguReview --> Revisi: Reviewer minta revisi
-    Revisi --> MenungguReview: PIC kirim ulang
-    Selesai --> Revisi: Dibuka kembali
-    BelumDimulai --> Dibatalkan: Dibatalkan dengan alasan
-    Dikerjakan --> Dibatalkan: Dibatalkan dengan alasan
-    MenungguReview --> Dibatalkan: Dibatalkan dengan alasan
-    Revisi --> Dibatalkan: Dibatalkan dengan alasan
-    Selesai --> [*]
-    Dibatalkan --> [*]
+    [*] --> Draft: Karyawan mulai mengisi aktivitas
+    Draft --> Draft: Simpan Draft berkala
+    Draft --> Submitted: Karyawan klik Simpan & Kirim Laporan
+    Submitted --> Submitted: Karyawan menambah/memperbarui aktivitas hari itu
+    Submitted --> AdaCatatan: Atasan memberikan catatan / feedback arahan
+    AdaCatatan --> AdaCatatan: Atasan memperbarui catatan; karyawan membaca feedback
 ```
 
-#### Aturan bisnis
+#### 7.4 Functional Requirements
 
-- BR-TSK-01 — Tepat satu PIC utama per tugas. Anggota terkait boleh melihat dan berkomentar, tetapi tidak mengirim untuk review.
-- BR-TSK-02 — Reviewer tidak boleh sama dengan PIC, kecuali pada task rutin tanpa review.
-- BR-TSK-03 — Hanya pembuat atau manager PIC yang boleh mengubah judul, deskripsi, tenggat, dan prioritas. Perubahan tenggat mencatat nilai lama dan baru.
-- BR-TSK-04 — "Tepat waktu" berarti waktu pengiriman review **yang akhirnya disetujui** tidak melewati tenggat. Lamanya reviewer memutuskan tidak merugikan PIC.
-- BR-TSK-05 — Tugas tidak dihapus. Pengecualian: pembuat boleh menghapus tugas Belum dimulai yang belum punya aktivitas. Selain itu gunakan Dibatalkan.
-- BR-TSK-06 — Task rutin tidak dibuat pada hari libur, di luar hari kerja, atau saat karyawan punya cuti/izin disetujui pada hari itu.
-- BR-TSK-07 — Task rutin yang Terlewat tidak bisa diselesaikan mundur. Manager dapat menandainya "dimaafkan" dengan alasan sehingga tidak dihitung di KPI.
-- BR-TSK-08 — Tugas lintas departemen terlihat oleh manager dari PIC, supaya atasan mengetahui beban kerja timnya.
-- BR-TSK-09 — Saat PIC menjadi nonaktif, tugas aktifnya ditandai perlu dialihkan dan muncul di dashboard managernya.
-- BR-TSK-10 — Tenggat disimpan dalam UTC; "akhir hari" mengikuti zona waktu lokasi kerja PIC.
+| ID | Requirement | Prioritas |
+|---|---|:-:|
+| FR-DREP-01 | Pengguna dapat membuka halaman Daily Report untuk tanggal tertentu (default: hari ini) di User Portal | W |
+| FR-DREP-02 | Grid tabel interaktif dengan kemampuan tambah baris, edit sel langsung, duplikasi, dan hapus baris | W |
+| FR-DREP-03 | Validasi format waktu (HH:mm) dan memastikan waktu selesai tidak mendahului waktu mulai | W |
+| FR-DREP-04 | Simpan berkala ke database dengan indikator visual status simpan | W |
+| FR-DREP-05 | Tombol submit laporan dengan validasi kelengkapan (minimal 1 baris aktivitas terisi) | W |
+| FR-DREP-06 | Karyawan dapat terus memperbarui isi laporan harian tanpa diblokir penguncian approval | W |
+| FR-DREP-07 | Manager departemen dapat melihat daftar Daily Report timnya yang sudah diisi di Management Backend | W |
+| FR-DREP-08 | Manager dapat membuka detail laporan dalam format tabel lengkap beserta waktu dan hasilnya | W |
+| FR-DREP-09 | Manager dapat memberikan catatan atau masukan langsung (*feedback notes*) tanpa opsi tolak/setujui | W |
+| FR-DREP-10 | Catatan dari manager langsung tampil pada kartu feedback di halaman Daily Report karyawan | W |
+| FR-DREP-11 | Filter laporan di Management Backend berdasarkan rentang tanggal, departemen, dan status keberadaan catatan | W |
+| FR-DREP-12 | Rekap produktivitas tim: total jam kerja tercatat, jumlah aktivitas per karyawan | W |
+| FR-DREP-13 | Ekspor laporan Daily Report ke Excel (.xlsx) sesuai izin pengguna | W |
 
-#### Acceptance criteria
+#### 7.5 Aturan Bisnis
 
-- [ ] AC-TSK-01 — PIC tidak bisa mengirim untuk review tanpa bukti hasil.
-- [ ] AC-TSK-02 — Permintaan revisi tanpa catatan ditolak.
-- [ ] AC-TSK-03 — Tugas dengan 4 item checklist dan 3 item selesai menampilkan progres 75%.
-- [ ] AC-TSK-04 — Tugas yang melewati tenggat tanpa selesai tampil bertanda terlambat dan memicu notifikasi tepat satu kali.
-- [ ] AC-TSK-05 — Manager departemen A tidak bisa menugaskan ke staff departemen B tanpa permission lintas departemen.
-- [ ] AC-TSK-06 — Task rutin tercipta otomatis pada hari kerja untuk karyawan sasaran, dan tidak tercipta saat ia cuti atau pada hari libur.
-- [ ] AC-TSK-07 — Task rutin yang tidak tuntas berubah menjadi Terlewat setelah hari berakhir.
-- [ ] AC-TSK-08 — Setiap perpindahan status tercatat di riwayat beserta pelaku dan waktunya.
-- [ ] AC-TSK-09 — Staff hanya melihat tugas tempat ia menjadi PIC, anggota, atau pembuat.
+- BR-DREP-01 — Satu header Daily Report per karyawan per tanggal kalender. Setiap header memiliki banyak baris (entries).
+- BR-DREP-02 — **Tidak ada gerbang persetujuan admin/atasan (No Approval Gate).** Daily Report adalah catatan akuntabilitas harian mandiri, bukan pengajuan izin/dana yang memerlukan tanda tangan persetujuan.
+- BR-DREP-03 — Atasan dapat memberikan catatan/umpan balik kapan saja. Catatan tersebut bersifat pembinaan dan arahan kinerja (*coaching & feedback*).
+- BR-DREP-04 — Department Manager berhak melihat laporan dari karyawan di bawah departemennya; Owner, HR, dan Operations Manager dapat melihat lintas-departemen.
+- BR-DREP-05 — Daily Report tidak menggantikan pencatatan absensi jam masuk/pulang QR, melainkan melengkapi rincian produktivitas dan keluaran kerja harian.
+
+#### 7.6 Acceptance Criteria
+
+- [ ] AC-DREP-01 — Karyawan dapat menambah baris aktivitas dan menyimpannya sebagai laporan harian.
+- [ ] AC-DREP-02 — Validasi menolak simpan jika seluruh baris aktivitas kosong saat submit.
+- [ ] AC-DREP-03 — Validasi memastikan waktu selesai tidak mendahului waktu mulai.
+- [ ] AC-DREP-04 — Setelah dikirim, laporan langsung tampil di halaman Monitoring Daily Report milik atasan tanpa menunggu status persetujuan.
+- [ ] AC-DREP-05 — Atasan dapat menuliskan catatan dan menyimpannya; catatan langsung muncul di User Portal karyawan terkait.
+- [ ] AC-DREP-06 — Karyawan tidak terblokir dari memperbarui baris aktivitas hari itu setelah atasan memberikan catatan.
 
 ---
 
@@ -1364,6 +1354,7 @@ Status periode payroll: `draft` → `calculated` → `in_approval` → `approved
 | Tabel | Kolom | Kunci, indeks, catatan |
 |---|---|---|
 | `attendance_records` | `employee_id` (FK), `work_date`, `timezone`, `scheduled_start`, `scheduled_end`, `clock_in_at`, `clock_out_at`, `clock_in_ip`, `clock_out_ip`, `clock_in_agent`, `status`, `late_minutes`, `early_leave_minutes`, `work_minutes` (nullable), `is_incomplete`, `is_off_day`, `source` (`self`/`correction`/`hr_manual`/`system`), `leave_request_id` (FK, nullable), `notes` | Unik: (`employee_id`, `work_date`). Indeks: (`work_date`, `status`) |
+| `attendance_qr_tokens` | `token` (PK string), `work_location_id` (FK, nullable), `secret_hash`, `expires_at`, `created_by` (FK), `is_active` | Token berotasi untuk scanner Dynamic QR di kantor |
 | `attendance_corrections` | `employee_id` (FK), `attendance_record_id` (FK, nullable), `work_date`, `requested_clock_in_at`, `requested_clock_out_at`, `reason`, `status`, `original_snapshot` (JSON), `applied_at` | Indeks: (`employee_id`, `work_date`) |
 | `attendance_period_locks` | `year`, `month`, `is_locked`, `locked_by`, `locked_at`, `unlocked_by`, `unlocked_at`, `unlock_reason` | Unik: (`year`, `month`). Riwayat kunci/buka ada di audit log |
 | `leave_types` | `code`, `name`, `deducts_balance`, `count_mode` (`working_days`/`calendar_days`), `attachment_required_after_days` (nullable), `requires_hr_validation`, `min_notice_days`, `backdate_max_days`, `max_days_per_request` (nullable), `is_paid`, `attendance_status` (`leave`/`sick`/`permit`), `is_active` | Unik: `code` |
@@ -1374,27 +1365,25 @@ Status periode payroll: `draft` → `calculated` → `in_approval` → `approved
 | `approval_steps` | `approval_request_id` (FK), `step_order`, `step_type` (`direct_manager`/`hr`/`specific`), `approver_employee_id` (FK, nullable = kelompok), `approver_permission` (nullable), `status` (`waiting`/`pending`/`approved`/`rejected`/`skipped`), `decided_by` (FK), `on_behalf_of` (FK, nullable), `decided_at`, `notes`, `reassigned_from` (FK, nullable), `last_reminded_at` | Unik: (`approval_request_id`, `step_order`). Indeks: (`approver_employee_id`, `status`) |
 | `approval_delegations` | `from_employee_id` (FK), `to_employee_id` (FK), `start_date`, `end_date`, `reason`, `created_by`, `revoked_at` | Indeks: (`from_employee_id`, `start_date`, `end_date`) |
 
-### 8.4 Tabel F1 — Bersama
+### 8.4 Tabel Bersama
 
 | Tabel | Kolom | Kunci, indeks, catatan |
 |---|---|---|
-| `attachments` | `attachable_type`, `attachable_id`, `file_name`, `file_path`, `mime_type`, `size_bytes`, `uploaded_by` | Indeks: (`attachable_type`, `attachable_id`). Dipakai cuti, koreksi, tugas, komentar |
+| `attachments` | `attachable_type`, `attachable_id`, `file_name`, `file_path`, `mime_type`, `size_bytes`, `uploaded_by` | Indeks: (`attachable_type`, `attachable_id`) |
 | `notifications` | Skema bawaan framework: `id` (UUID), `type`, `notifiable_type`, `notifiable_id`, `data` (JSON), `read_at` | Indeks bawaan: (`notifiable_type`, `notifiable_id`) |
 | `audit_logs` | `actor_user_id` (nullable = sistem), `action`, `module`, `entity_type`, `entity_id`, `old_values` (JSON), `new_values` (JSON), `metadata` (JSON), `ip_address`, `user_agent`, `created_at` | Tanpa `updated_at`. Indeks: (`entity_type`, `entity_id`), (`actor_user_id`, `created_at`), (`module`, `created_at`) |
 | `settings` | `key` (PK), `value` (JSON), `updated_by`, `updated_at` | Pengaturan umum dan kebijakan |
 | `exports` | `user_id` (FK), `report_key`, `filters` (JSON), `row_count`, `file_path`, `status` (`queued`/`ready`/`failed`/`expired`), `expires_at` | Berkas dihapus saat kedaluwarsa |
 | `import_batches` | `user_id` (FK), `type`, `file_path`, `total_rows`, `success_rows`, `failed_rows`, `error_file_path`, `status` | Jejak tiap impor |
 
-### 8.5 Tabel F2 — Tugas dan KPI
+### 8.5 Tabel Daily Report dan KPI
 
 | Tabel | Kolom | Kunci, indeks, catatan |
 |---|---|---|
-| `tasks` | `title`, `description`, `department_id` (FK), `created_by` (FK ke `employees`), `pic_employee_id` (FK), `reviewer_employee_id` (FK), `priority`, `status`, `progress`, `start_at`, `due_at`, `submitted_at`, `completed_at`, `result_note`, `result_url`, `revision_count`, `cancel_reason`, `source` (`manual`/`recurring`), `recurring_template_id` (FK, nullable), `task_date` (nullable), `is_excused`, `needs_reassignment`, `deleted_at` | Indeks: (`pic_employee_id`, `status`), (`department_id`, `status`), `due_at`. Unik: (`recurring_template_id`, `pic_employee_id`, `task_date`) |
-| `task_members` | `task_id` (FK), `employee_id` (FK) | Kunci utama gabungan |
-| `task_checklist_items` | `task_id` (FK), `title`, `is_done`, `done_by`, `done_at`, `sort_order` | – |
-| `task_comments` | `task_id` (FK), `employee_id` (FK), `body`, `deleted_at` | Lampiran lewat `attachments` |
-| `task_activities` | `task_id` (FK), `actor_employee_id` (nullable = sistem), `type`, `from_value`, `to_value`, `note`, `created_at` | Riwayat status, progres, tenggat, PIC |
-| `task_recurring_templates` | `title`, `description`, `department_id` (nullable), `position_id` (nullable), `employee_id` (nullable), `recurrence` (`every_workday`/`weekly`), `weekdays` (JSON), `checklist` (JSON), `requires_review`, `reviewer_employee_id` (nullable), `is_active`, `created_by` | Minimal satu sasaran terisi |
+| `daily_reports` | `employee_id` (FK), `department_id` (FK), `report_date`, `status` (`draft`/`submitted`/`needs_revision`/`accepted`), `submitted_at`, `reviewed_at`, `reviewed_by` (FK ke `users`, nullable), `revision_notes` (nullable), `total_entries`, `work_hours_estimate` (nullable) | Unik: (`employee_id`, `report_date`). Indeks: (`department_id`, `report_date`, `status`) |
+| `daily_report_entries` | `daily_report_id` (FK), `row_order`, `start_time`, `end_time`, `activity`, `result`, `status` (`pending`/`in_progress`/`completed`), `notes` (nullable), `extra_data` (JSON, nullable) | Indeks: (`daily_report_id`, `row_order`) |
+| `daily_report_reviews` | `daily_report_id` (FK), `reviewer_id` (FK ke `users`), `action` (`accept`/`request_revision`), `notes`, `created_at` | Log riwayat review manager per laporan |
+| `daily_report_templates` | `department_id` (FK, nullable), `position_id` (FK, nullable), `name`, `extra_fields_schema` (JSON), `is_active` | Template kolom dinamis per departemen |
 | `kpi_templates` | `position_id` (FK), `name`, `is_active` | Satu template aktif per jabatan |
 | `kpi_indicators` | `kpi_template_id` (FK), `name`, `description`, `measurement_type`, `unit`, `default_target`, `weight`, `sort_order` | Total `weight` per template = 100 |
 | `kpi_periods` | `name`, `type` (`weekly`/`monthly`), `start_date`, `end_date`, `target_deadline`, `review_deadline`, `status` | Periode setipe tidak boleh tumpang-tindih |
@@ -1612,99 +1601,54 @@ Asumsi skala: sampai 200 karyawan dan 3 tahun data, kira-kira 190.000 baris abse
 | T0.03 | Menyiapkan infrastruktur | VPS, domain/subdomain, SSL, akun SMTP, lokasi backup di luar server, repositori kode | Server bisa diakses lewat HTTPS; kredensial tersimpan aman | – | S |
 | T0.04 | Menyetujui PRD Design | Meninjau token, layout, dan wireframe halaman F1 | Desain F1 disetujui, catatan revisi tuntas | – | S |
 
-### Fase 1 — Fondasi sistem
+### Phase 1 — Foundation
 
-| ID | Task | Rincian pekerjaan | Selesai bila | Bergantung | Ukuran |
+| ID | Task | Rincian Pekerjaan | Kriteria Selesai | Bergantung | Ukuran |
 |---|---|---|---|---|:-:|
-| T1.01 | Setup proyek | Laravel, struktur per domain, lint, kerangka test, variabel lingkungan, Docker Compose (app, nginx, mysql, redis, queue, scheduler) | Aplikasi kosong berjalan di lokal dan staging | T0.03 | M |
-| T1.02 | CI dan skrip deploy | Lint + test otomatis; skrip deploy ke staging/produksi beserta migration | Perubahan yang gagal test tidak bisa dirilis | T1.01 | S |
-| T1.03 | Kerangka tampilan | App shell (sidebar, topbar, navigasi HP) dan komponen dasar sesuai PRD Design (D-01 s.d. D-04) | Halaman contoh memuat semua komponen dasar dan responsif | T1.01, T0.04 | L |
-| T1.04 | Autentikasi | Login, logout, pembatasan percobaan, wajib ganti password, lupa/reset password, batas sesi (FR-AUTH-01–10) | AC-AUTH-01–05 | T1.03 | M |
-| T1.05 | RBAC | Paket RBAC, seeder 7 role dan katalog permission (bagian 6), middleware, helper cakupan own/team/all, policy dasar | Uji matriks role × permission lulus | T1.04 | M |
-| T1.06 | Audit log | Tabel, layanan pencatat, pencatatan otomatis perubahan model, masking nilai sensitif, halaman daftar dan detail (FR-SET-06, 07) | AC-SET-03, AC-SET-04 | T1.05 | M |
-| T1.07 | Data master organisasi | CRUD departemen, jabatan, lokasi kerja; seeder struktur awal; bagan organisasi (FR-ORG-01–06) | AC-ORG-01–03 | T1.05 | M |
-| T1.08 | Akun dan role | Daftar akun, reset password manual, aktif/nonaktif, penetapan role, editor permission per role, pengaman admin terakhir, role kustom (FR-SET-04, 05, 08) | AC-SET-02 | T1.05 | M |
-| T1.09 | Pengaturan umum | Tabel `settings`, halaman Profil Perusahaan dan Umum (FR-SET-01–03) | Nilai tersimpan, tercatat di audit log, dan terbaca modul lain | T1.06 | S |
-| T1.10 | Layanan berkas | Unggah tervalidasi, penyimpanan privat, unduh lewat rute berizin, tabel `attachments` | Berkas tidak bisa dibuka tanpa izin (NFR-SEC-05, NFR-PRV-02) | T1.05 | M |
-| T1.11 | Infrastruktur notifikasi | Lonceng, panel, halaman notifikasi, pembaruan berkala, email lewat antrean (FR-NTF-01–07) | AC-NTF-02 | T1.03 | M |
-| T1.12 | Backup | Backup harian database dan berkas ke luar server; prosedur pemulihan tertulis | Uji pemulihan ke staging berhasil (NFR-REL-01–03) | T1.01 | S |
+| T1.01 | Setup Basis Monorepo & Lingkungan | Konfigurasi Laravel 10 backend + React TypeScript Vite frontend, database `hris_db`, koneksi database & environment | Backend dan frontend terhubung lancar | – | M |
+| T1.02 | Master Data Organisasi Kurma Group | Migrasi dan seeder untuk 4 departemen: Herbal, Fashion MY PH, Shopee Video, HR Department serta jabatan-jabatan terkait | Departemen & jabatan tersimpan di database secara dinamis | T1.01 | M |
+| T1.03 | Autentikasi & Granular RBAC | Sanctum API auth, Spatie permission catalog (swalayan vs manajemen), middleware otorisasi, data scoping | Uji izin granular lulus di backend | T1.02 | M |
+| T1.04 | Dual-Portal App Shell Layout | Layout terpisah di frontend: **User Portal** dan **Management Backend**, dengan portal switcher berdasarkan role pengguna | User & Admin memiliki sidebar & navigasi terpisah yang bersih | T1.03 | L |
+| T1.05 | Infrastruktur Audit Trail & Storage | Pencatatan otomatis ke `audit_logs`, penyimpanan privat berkas lampiran | Perubahan sensitif tercatat dengan IP dan actor | T1.03 | M |
 
-### Fase 2 — Employee Management
+### Phase 2 — User Portal
 
-| ID | Task | Rincian pekerjaan | Selesai bila | Bergantung | Ukuran |
+| ID | Task | Rincian Pekerjaan | Kriteria Selesai | Bergantung | Ukuran |
 |---|---|---|---|---|:-:|
-| T2.01 | Skema karyawan | Migration dan model `employees`, `employee_assignments`, `employee_documents`; enkripsi kolom sensitif; aturan penempatan (BR-EMP-01, 04, 07) | Uji unit penempatan aktif dan anti-tumpang-tindih lulus | T1.07 | M |
-| T2.02 | Daftar karyawan | Tabel dengan cari, filter, urut, paginasi, dan cakupan data (FR-EMP-03) | AC-EMP-03 | T2.01 | M |
-| T2.03 | Tambah karyawan | Form bertahap, nomor otomatis, pembuatan akun dan role default (FR-EMP-01, 02) | AC-EMP-01 | T2.01, T1.08 | L |
-| T2.04 | Profil dan ubah data | Detail bertab, ubah oleh HR, ubah terbatas oleh karyawan, histori perubahan (FR-EMP-04, 05, 15) | AC-EMP-04 | T2.02 | L |
-| T2.05 | Mutasi dan promosi | Penempatan baru bertanggal efektif, penutupan otomatis, penanganan manager departemen (FR-EMP-06) | AC-EMP-02 | T2.04 | M |
-| T2.06 | Nonaktif dan reaktivasi | Tanggal keluar, penonaktifan terjadwal, efek ke akun/pengajuan/approval, reaktivasi (FR-EMP-07–09) | AC-EMP-06 | T2.05 | M |
-| T2.07 | Dokumen dan data sensitif | Unggah dokumen, masking, buka dengan izin, catat akses (FR-EMP-10, 11) | AC-EMP-05, AC-EMP-08 | T1.10, T2.04 | M |
-| T2.08 | Impor dan ekspor | Template Excel, pratinjau, laporan error, ekspor daftar (FR-EMP-12, 13) | AC-EMP-07 | T2.03 | L |
-| T2.09 | Pengingat kontrak | Job harian dan notifikasi N-14 (FR-EMP-14) | Pengingat H-30 dan H-7 muncul pada data uji | T1.11, T2.01 | S |
+| T2.01 | Dashboard Pribadi Karyawan | Sapaan, status absensi hari ini, tombol Scan QR, status Daily Report hari ini, ringkasan izin terakhir, notifikasi | Dashboard menampilkan data pengguna login secara akurat | T1.04 | M |
+| T2.02 | Profil Karyawan & Edit Mandiri | Tampilan profil lengkap, kemampuan edit terbatas (foto, kontak), perlindungan kolom sensitif | Karyawan hanya bisa mengubah field yang diizinkan | T1.04 | M |
+| T2.03 | Dynamic QR Attendance Scanner | Antarmuka kamera scanner di browser/HP, integrasi kirim token ke server, validasi waktu server & anti-double-scan | Scan QR sukses mencatat clock-in/out dengan respons seketika | T1.03 | L |
+| T2.04 | Pengajuan Izin & Cuti | Form izin/cuti, validasi durasi & tanggal, unggah surat keterangan dokter, daftar status pengajuan pribadi | Pengajuan tersimpan dengan status pending dan menunggu approval | T1.05 | M |
+| T2.05 | **Daily Report Spreadsheet Interaktif** | Grid tabel spreadsheet (No, Waktu Mulai, Waktu Selesai, Aktivitas, Hasil, Status, Catatan), inline edit, shortcut keyboard, autosave & draft, tombol kirim laporan | Pengalaman spreadsheet bekerja mulus, validasi waktu konsisten | T1.04 | L |
+| T2.06 | Riwayat & Notifikasi Personal | Riwayat kehadiran, pengajuan izin, dan histori laporan harian, panel notifikasi status | Pengguna dapat melihat arsip aktivitas dan revisi | T2.05 | M |
 
-### Fase 3 — Absensi dan Cuti
+### Phase 3 — Management Backend
 
-| ID | Task | Rincian pekerjaan | Selesai bila | Bergantung | Ukuran |
+| ID | Task | Rincian Pekerjaan | Kriteria Selesai | Bergantung | Ukuran |
 |---|---|---|---|---|:-:|
-| T3.01 | Jadwal dan libur | CRUD jadwal kerja, hari libur + impor, kalender; layanan penentu hari kerja per karyawan (FR-ATT-14, 15) | Uji unit penentuan hari kerja lulus | T2.01 | M |
-| T3.02 | Inti absensi | Skema `attendance_records`; layanan clock-in/out, tanggal kerja per zona waktu, perhitungan status (FR-ATT-01–03, 16) | AC-ATT-01–03, AC-ATT-08, AC-SET-01 | T3.01 | L |
-| T3.03 | Halaman Absensi Saya | Tombol clock, status hari ini, riwayat bulanan dan ringkasan (FR-ATT-11) | Nyaman dipakai di HP; AC-ATT-02 | T3.02 | M |
-| T3.04 | Job tutup hari | Alpa otomatis, lupa clock-out, N-09 (FR-ATT-04, 05) | AC-ATT-04, AC-ATT-05 | T3.02 | M |
-| T3.05 | Approval engine | Skema, resolusi approver, keputusan bertransaksi, kotak masuk, linimasa, delegasi, pengalihan (FR-APR-01–09) | AC-APR-01–07 | T2.06 | L |
-| T3.06 | Koreksi absensi | Form, validasi, approval, penerapan dan audit (FR-ATT-06, 07) | AC-ATT-06 | T3.04, T3.05 | M |
-| T3.07 | Absensi tim dan HR | Tampilan harian dan rekap mingguan/bulanan sesuai cakupan, input manual HR (FR-ATT-10, 12) | AC-ATT-09, AC-ATT-10 | T3.03 | M |
-| T3.08 | Kunci periode | Kunci/buka periode dan penolakan perubahan (FR-ATT-09) | AC-ATT-07 | T3.07 | S |
-| T3.09 | Jenis cuti dan saldo | CRUD jenis cuti + seeder, saldo, penyesuaian, pembentukan tahunan, saldo awal (FR-LEV-10, 11, 16) | Saldo awal dari T0.02 termuat dan benar | T3.01 | M |
-| T3.10 | Pengajuan cuti | Form, hitung hari, validasi, reservasi saldo, halaman Cuti Saya (FR-LEV-01–03, 05, 06) | AC-LEV-01–04 | T3.09, T3.05 | L |
-| T3.11 | Keputusan dan pembatalan | Alur atasan → HR, penolakan beralasan, pembatalan, tindakan HR, sinkron absensi (FR-LEV-04, 07–09, 14, 15; FR-ATT-08) | AC-LEV-05–07, AC-LEV-09, AC-LEV-10 | T3.10 | L |
-| T3.12 | Kalender cuti | Tampilan bulan dengan aturan visibilitas (FR-LEV-12) | AC-LEV-08 | T3.11 | M |
-| T3.13 | Notifikasi dan pengingat | Event N-02 s.d. N-13 dan N-17; job pengingat dan eskalasi; preferensi email dan pembersihan notifikasi (FR-LEV-13, FR-APR-10, FR-NTF-08, 09) | AC-NTF-01, AC-NTF-03, AC-NTF-04 | T3.06, T3.11, T1.11 | M |
+| T3.01 | Dashboard Manajemen Live | Metrik aktual: total karyawan aktif per departemen, rekap absensi hari ini, pengajuan pending, daily report butuh review (tanpa data dummy) | Menampilkan ringkasan operasional real-time | T1.04 | M |
+| T3.02 | Employee Management & Mutasi | CRUD karyawan, penempatan departemen & manager, riwayat penempatan/mutasi tanpa menghapus histori, dokumen pribadi | Data histori mutasi tersimpan rapi | T1.02 | L |
+| T3.03 | Attendance Management & QR Screen | Monitoring kehadiran tim/perusahaan, rekap keterlambatan, **Dynamic QR Code Screen** untuk display kantor | Layar display menghasilkan QR baru secara periodik | T2.03 | L |
+| T3.04 | Approval Management Terpadu | Halaman persetujuan untuk pengajuan izin/cuti dan koreksi absensi dengan alur Manager → HR | Approver dapat menyetujui atau menolak dengan catatan | T2.04 | M |
+| T3.05 | **Daily Report Review Management** | Antarmuka manager untuk melihat laporan harian tim, tabel detail aktivitas, tombol **Terima Laporan** dan **Minta Revisi** dengan catatan, rekap produktivitas, ekspor Excel | Workflow revisi berfungsi dua arah antara staff dan manager | T2.05 | L |
 
-### Fase 4 — Dashboard, Laporan, dan Rilis MVP
+### Phase 4 — Performance and Payroll
 
-| ID | Task | Rincian pekerjaan | Selesai bila | Bergantung | Ukuran |
+| ID | Task | Rincian Pekerjaan | Kriteria Selesai | Bergantung | Ukuran |
 |---|---|---|---|---|:-:|
-| T4.01 | Layanan agregasi | Query ringkasan per cakupan data dan cache 60 detik (FR-DSH-02, 04) | Uji kesesuaian angka dengan daftar lulus | T3.07, T3.11 | M |
-| T4.02 | Dashboard per role | Widget 1–13 sesuai permission, tautan ke daftar terfilter, keadaan kosong, filter tren (FR-DSH-01, 03, 05, 06) | AC-DSH-01–03 | T4.01 | L |
-| T4.03 | Kerangka laporan | Halaman Laporan, filter, pratinjau, ekspor lewat antrean, tabel `exports`, N-16 (FR-RPT-01, 02, 04–06) | AC-RPT-04, AC-RPT-05 | T1.10, T1.11 | M |
-| T4.04 | Laporan F1 | R-01 s.d. R-05 dan R-09, termasuk karyawan nonaktif dan grafik ringkas (FR-RPT-07, 08; FR-ATT-13) | AC-RPT-01, AC-RPT-02 | T4.03, T3.08, T3.11 | L |
-| T4.05 | Template Excel dan PDF | Kop perusahaan, judul, periode, filter, pencetak, nomor halaman (FR-RPT-03) | AC-RPT-03 | T4.04 | M |
-| T4.06 | Uji performa dan keamanan | Data uji sebesar asumsi NFR, uji beban clock-in, pemeriksaan HTTPS/header/pembatasan laju, uji matriks role menyeluruh | NFR-PRF-01–06 dan NFR-SEC-01–10 terpenuhi | T4.02, T4.05 | M |
-| T4.07 | Migrasi data awal | Impor karyawan, penempatan, saldo cuti, dan hari libur ke staging lalu produksi | Jumlah dan sampel data cocok dengan berkas T0.02 | T0.02, T2.08, T3.09 | M |
-| T4.08 | UAT MVP | Menjalankan skenario bagian 12 bersama perwakilan tiap role | Semua skenario F1 lulus atau punya tindak lanjut tertulis | T4.06, T4.07 | M |
-| T4.09 | Panduan dan pelatihan | Panduan singkat per role (staff, manager, HR, admin) dan sesi pelatihan | Tiap role sudah dilatih dan menerima panduan | T4.08 | S |
-| T4.10 | Go-live MVP dan pendampingan | Rilis produksi, pemantauan 2 minggu, daftar perbaikan | Kriteria rilis bagian 13 terpenuhi | T4.08, T4.09 | M |
+| T4.01 | KPI Management Berbasis Jabatan | Template indikator KPI per jabatan (Marketing, Riset, Copywriter, IT, HR, Finance, dll.), bobot target, pengisian realisasi | Perhitungan skor KPI transparan dan tersimpan | T3.02 | L |
+| T4.02 | Payroll Management (Isolasi Privasi) | Penggajian bulanan, perhitungan hari hadir, komponen pendapatan/potongan tipe desimal, kontrol akses ketat (Manager tidak melihat gaji tim, Staff hanya melihat slip sendiri) | Hak akses payroll terisolasi 100% | T3.03 | L |
+| T4.03 | Slip Gaji Digital & Riwayat | Penerbitan slip gaji privat per karyawan, pratinjau dan unduh PDF | Karyawan hanya bisa membuka slip miliknya | T4.02 | M |
+| T4.04 | Laporan Manajemen & Ekspor | Rekap kehadiran, produktivitas harian, dan evaluasi dalam format Excel dan PDF | Ekspor data berfungsi sesuai cakupan akses role | T3.05 | M |
 
-### Fase 5 — Task dan KPI
+### Phase 5 — Quality Assurance & Security
 
-| ID | Task | Rincian pekerjaan | Selesai bila | Bergantung | Ukuran |
+| ID | Task | Rincian Pekerjaan | Kriteria Selesai | Bergantung | Ukuran |
 |---|---|---|---|---|:-:|
-| T5.01 | Skema tugas | Migration dan model tugas, anggota, checklist, komentar, aktivitas | Uji unit mesin status lulus | T4.10 | M |
-| T5.02 | Buat dan tugaskan | Form tugas, cakupan penugasan, lintas departemen, ganti PIC (FR-TSK-01, 02, 19) | AC-TSK-05, AC-TSK-09 | T5.01 | M |
-| T5.03 | Pengerjaan dan review | Transisi status, bukti hasil, review/revisi, buka kembali, pembatalan (FR-TSK-03, 05, 06, 14, 15) | AC-TSK-01, AC-TSK-02, AC-TSK-08 | T5.02 | L |
-| T5.04 | Checklist, komentar, lampiran | Progres otomatis, komentar dan sebutan nama, lampiran (FR-TSK-04, 07–09) | AC-TSK-03 | T5.03 | M |
-| T5.05 | Tampilan tugas | Daftar, kanban, Tugas Saya, filter (FR-TSK-10, 11) | Berfungsi di HP dan desktop | T5.03 | L |
-| T5.06 | Task rutin | Template, generator harian, Terlewat, "dimaafkan", halaman Checklist Harian (FR-TSK-16–18) | AC-TSK-06, AC-TSK-07 | T5.04, T3.01 | L |
-| T5.07 | Pengingat tugas | Job tenggat dan terlambat, N-18 s.d. N-22 (FR-TSK-12, 13) | AC-TSK-04 | T5.03 | S |
-| T5.08 | Template KPI | CRUD template dan indikator, validasi bobot, seeder 10 jabatan (FR-KPI-01, 02) | AC-KPI-01 | T4.10 | M |
-| T5.09 | Periode dan lembar | Periode, pembuatan lembar (salinan indikator), periode berulang (FR-KPI-03, 04, 13) | AC-KPI-03 | T5.08 | M |
-| T5.10 | Target dan realisasi | Penyesuaian target, input realisasi dan bukti (FR-KPI-05, 06) | Perubahan target tercatat di audit log | T5.09 | M |
-| T5.11 | Indikator otomatis dan skor | Job penghitung, rumus skor dan grade, status "tidak dinilai" (FR-KPI-07, 11; FR-TSK-20) | AC-KPI-02, AC-KPI-04, AC-KPI-08 | T5.10, T5.06 | L |
-| T5.12 | Review dan penutupan | Penilaian atasan, tanggapan staff, tutup periode, N-23, N-24 (FR-KPI-08–10, 14) | AC-KPI-05, AC-KPI-06 | T5.11 | M |
-| T5.13 | Rekap, laporan, widget | Rekap KPI, R-06, R-07, widget 14–17, tab Tugas dan KPI di profil karyawan (FR-KPI-12) | AC-KPI-07 | T5.12, T5.07 | L |
-| T5.14 | UAT dan rilis F2 | Skenario F2, pelatihan manager dan staff | Skenario F2 lulus | T5.13 | M |
-
-### Fase 6 — Payroll, Rekrutmen, On/Offboarding
-
-| ID | Task | Rincian pekerjaan | Selesai bila | Bergantung | Ukuran |
-|---|---|---|---|---|:-:|
-| T6.01 | Finalisasi kebijakan payroll | Memutuskan butir "yang perlu diputuskan sebelum F3" pada M13 | Kebijakan tertulis dan disetujui | T5.14 | S |
-| T6.02 | Komponen dan struktur gaji | CRUD komponen, struktur gaji per karyawan bertanggal efektif (FR-PAY-01, 02) | Riwayat perubahan gaji tersimpan dan tercatat di audit log | T6.01 | M |
-| T6.03 | Periode dan perhitungan | Periode, tarik absensi terkunci, uang makan, prorata, input/impor komponen manual (FR-PAY-03–05) | AC-PAY-01, AC-PAY-02 | T6.02 | L |
-| T6.04 | Pemeriksaan dan persetujuan | Layar pemeriksaan, approval payroll, finalisasi, pembukaan ulang (FR-PAY-06–08) | AC-PAY-04, AC-PAY-05 | T6.03 | M |
-| T6.05 | Slip dan pembayaran | Slip PDF, akses aman, tandai dibayar, rekap transfer, R-08, N-25, N-26, widget 18 (FR-PAY-09–12) | AC-PAY-03, AC-PAY-06 | T6.04 | L |
-| T6.06 | Lowongan dan kandidat | Lowongan, kandidat, tahapan, penilaian interview, impor (FR-REC-01–04) | AC-REC-03 | T5.14 | L |
+| T5.01 | Pengujian Otorisasi & RBAC Granular | Pengujian seluruh rute endpoint API terhadap akses lintas-departemen dan privilege escalation | 0 akses tidak sah yang lolos | T4.02 | M |
+| T5.02 | Pengujian Keamanan Dynamic QR | Pengujian pencegahan scan ganda, pengujian token kedaluwarsa, dan pencegahan manipulasi client-side | Token tidak bisa direplay atau dipakai ganda | T2.03 | M |
+| T5.03 | Pengujian Alur Daily Report & Revisi | Uji pengisian draft, autosave, submit, feedback revisi, dan finalisasi accepted | Siklus revisi berjalan tanpa bug | T3.05 | M |
+| T5.04 | Verifikasi Audit Trail & Backup | Memastikan seluruh aksi penting (approval, mutasi karyawan, perubahan payroll) tercatat di audit log | Riwayat perubahan tercatat lengkap | T1.05 | S |
 | T6.07 | Konversi kandidat | Kandidat Diterima menjadi form karyawan terisi (FR-REC-05) | AC-REC-01 | T6.06 | S |
 | T6.08 | Checklist on/offboarding | Template, pembentukan otomatis, tampilan penanggung jawab, progres (FR-REC-06–08) | AC-REC-02, AC-REC-04 | T6.06 | L |
 | T6.09 | Laporan dan retensi kandidat | Laporan rekrutmen, job anonimisasi (FR-REC-09, 10) | Kandidat lama teranonimkan pada data uji | T6.08 | S |

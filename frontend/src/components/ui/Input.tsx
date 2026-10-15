@@ -6,10 +6,11 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   helperText?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  unitSuffix?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, leftIcon, rightIcon, className = '', disabled, ...props }, ref) => {
+  ({ label, error, helperText, leftIcon, rightIcon, unitSuffix, className = '', disabled, ...props }, ref) => {
     return (
       <div className={`flex flex-col space-y-1.5 ${className}`}>
         <label className="text-label text-text-primary">
@@ -31,6 +32,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               disabled:opacity-50 disabled:bg-subtle
               ${leftIcon ? 'pl-9' : ''} 
               ${rightIcon ? 'pr-9' : ''}
+              ${unitSuffix ? 'pr-14' : ''}
               ${error 
                 ? 'border-danger focus:ring-danger focus:border-danger' 
                 : 'border-border-input focus:ring-primary-ring focus:border-primary-ring'
@@ -40,11 +42,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
 
-          {rightIcon && (
+          {unitSuffix ? (
+            <div className="absolute right-3 text-xs text-text-muted font-medium pointer-events-none select-none">
+              {unitSuffix}
+            </div>
+          ) : rightIcon ? (
             <div className="absolute right-3 text-text-placeholder">
               {rightIcon}
             </div>
-          )}
+          ) : null}
         </div>
 
         {(error || helperText) && (

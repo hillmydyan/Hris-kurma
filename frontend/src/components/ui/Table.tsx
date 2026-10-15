@@ -34,17 +34,17 @@ export function TableRow({ children, className = '', onClick }: { children: Reac
   );
 }
 
-export function TableHead({ children, className = '' }: { children?: React.ReactNode, className?: string }) {
+export function TableHead({ children, className = '', colSpan }: { children?: React.ReactNode, className?: string, colSpan?: number }) {
   return (
-    <th className={`px-5 py-3 font-medium ${className}`}>
+    <th colSpan={colSpan} className={`px-5 py-3 font-medium ${className}`}>
       {children}
     </th>
   );
 }
 
-export function TableCell({ children, className = '' }: { children: React.ReactNode, className?: string }) {
+export function TableCell({ children, className = '', colSpan, rowSpan }: { children: React.ReactNode, className?: string, colSpan?: number, rowSpan?: number }) {
   return (
-    <td className={`px-5 py-4 ${className}`}>
+    <td colSpan={colSpan} rowSpan={rowSpan} className={`px-5 py-4 ${className}`}>
       {children}
     </td>
   );

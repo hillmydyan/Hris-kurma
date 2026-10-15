@@ -2,9 +2,9 @@
 
 **Dokumen:** Product Requirements Document — Design (UI/UX)  
 **Perusahaan:** Kurma Group Indonesia  
-**Versi:** 2.0 — memperluas bagian 6 pada `PRD_HRIS_Workflow_Design.md` (v1)  
-**Tanggal:** 9 Oktober 2026  
-**Status:** Draft untuk direview  
+**Versi:** 2.1 — diselaraskan dengan spesifikasi arsitektur & fitur `PROMPT_AI_AGENT_HRIS.md`  
+**Tanggal:** 11 Oktober 2026  
+**Status:** Disetujui untuk implementasi bertahap  
 **Dokumen pasangan:** `PRD_HRIS_Sistem_v2.md` (requirement, aturan bisnis, database, implementasi)
 
 > **Pembagian dokumen.** Dokumen ini menjawab *"tampilannya seperti apa dan pengguna berinteraksi bagaimana"*. Aturan bisnis, izin, dan data ada di PRD Sistem dan dirujuk dengan ID yang sama (`FR-…`, `BR-…`, `K-…`). Bila keduanya tampak bertentangan, PRD Sistem yang berlaku untuk perilaku, dan dokumen ini yang berlaku untuk tampilan.
@@ -213,118 +213,110 @@ Urutan lapisan (z-index): konten 0 · kepala lengket 10 · sidebar 20 · dropdow
 
 ## 3. Kerangka Layout (App Shell)
 
-### 3.1 Desktop dan laptop
+### 3.1 Kerangka Dual-Portal (App Shell)
+
+Sistem memisahkan secara tegas antarmuka antara **User Portal** (portal karyawan swalayan) dan **Management Backend** (portal pengelola/admin/HR/manajer/owner). Pengguna yang memiliki hak akses ganda dapat berpindah ruang kerja kapan saja melalui **Portal Switcher** pada topbar.
+
+#### Tampilan Desktop (User Portal vs Management Backend)
 
 ```text
-+------------------------------------------------------------------------------+
-| [=] HRIS Kurma Group    Beranda / Absensi           [Lonceng 3]  (AV) Nama v |  topbar 64 px
-+-------------------+----------------------------------------------------------+
-| Dashboard         |  Judul Halaman                        [ Tindakan utama ] |
-|                   |  Deskripsi singkat halaman                               |
-| Saya              |                                                          |
-|   Absensi         |  +-----------+ +-----------+ +-----------+ +-----------+ |
-|   Cuti & Izin     |  |  kartu    | |  kartu    | |  kartu    | |  kartu    | |
-|   Tugas           |  +-----------+ +-----------+ +-----------+ +-----------+ |
-|   KPI             |                                                          |
-| Tim               |  +----------------------------------------------------+  |
-|   Persetujuan (4) |  |  konten utama: tabel, form, kalender, atau papan   |  |
-|   Absensi Tim     |  |                                                    |  |
-|   Kalender Cuti   |  +----------------------------------------------------+  |
-| Perusahaan        |                                                          |
-|   Karyawan        |                                                          |
-|   Laporan         |                                                          |
-| Sistem            |                                                          |
-|   Pengaturan      |                                                          |
-| [<< Ringkas]      |                                                          |
-+-------------------+----------------------------------------------------------+
-   sidebar 256 px                    konten, lebar maksimal 1440 px
++--------------------------------------------------------------------------------------+
+| [KG] HRIS Kurma     [User Portal v] | Dashboard       [Lonceng 2]  (Avatar) Budi (MGR) v |  topbar 64 px
++---------------------+----------------------------------------------------------------+
+| USER PORTAL SIDEBAR |  Dashboard Pribadi                            [ Scan QR Absen ] |
+| 1. Dashboard        |  Selamat pagi, Budi! Semangat beraktivitas hari ini.           |
+| 2. Profile          |                                                                |
+| 3. Absensi          |  +---------------+ +---------------+ +---------------+         |
+| 4. Pengajuan Izin   |  | Status Absen  | | Daily Report  | | Sisa Cuti     |         |
+| 5. Daily Report     |  +---------------+ +---------------+ +---------------+         |
+| 6. Riwayat          |                                                                |
+| 7. Notifikasi       |  +-----------------------------------------------------------+ |
+|                     |  | Daily Report Hari Ini (Spreadsheet interaktif)            | |
+| [<< Ringkas]        |  +-----------------------------------------------------------+ |
++---------------------+----------------------------------------------------------------+
+   sidebar 256 px                     konten utama, max-w 1440 px
 ```
-
-### 3.2 HP
 
 ```text
-+----------------------------------+
-| Beranda              [Lonceng 3] |  topbar 56 px
-+----------------------------------+
-|                                  |
-|  konten satu kolom               |
-|  kartu ditumpuk ke bawah         |
-|                                  |
-|  [   Tindakan utama (lebar)   ]  |
-|                                  |
-+----------------------------------+
-| Beranda Absensi Cuti Notif Lain  |  navigasi bawah 64 px
-+----------------------------------+
++--------------------------------------------------------------------------------------+
+| [KG] HRIS Kurma     [Management v]  | Karyawan        [Lonceng 5]  (Avatar) Admin v  |  topbar 64 px
++---------------------+----------------------------------------------------------------+
+| MANAGEMENT SIDEBAR  |  Kelola Karyawan                        [ + Tambah Karyawan ]  |
+| 1. Dashboard        |  Daftar seluruh staf dan karyawan aktif Kurma Group.           |
+| 2. Employee Mgmt    |                                                                |
+| 3. Dept & Position  |  [ Filter Departemen v ] [ Filter Status v ]  [ Cari...      ] |
+| 4. Attendance Mgmt  |  +-----------------------------------------------------------+ |
+| 5. Leave & Approval |  | Tabel Karyawan, Jabatan, Atasan, Status, Dokumen, Aksi    | |
+| 6. Daily Report Mgt |  +-----------------------------------------------------------+ |
+| 7. KPI & Performance|                                                                |
+| 8. Payroll          |                                                                |
+| 9. Reports & Export |                                                                |
+| 10. Notifications   |                                                                |
+| 11. User & Role     |                                                                |
+| 12. Settings        |                                                                |
+| 13. Audit Logs      |                                                                |
+| [<< Ringkas]        |                                                                |
++---------------------+----------------------------------------------------------------+
+   sidebar 256 px                     konten utama, max-w 1440 px
 ```
 
-### 3.3 Sidebar
+### 3.2 Sidebar Spesifik per Portal
 
-| Bagian | Spesifikasi |
-|---|---|
-| Wadah | Lebar 256 px, latar `bg-surface`, garis kanan `border-default`, tetap di tempat saat konten digulir |
-| Kepala | Logo dan nama aplikasi "HRIS Kurma Group" |
-| Judul grup | Gaya `caption`, warna `text-muted`: Saya, Tim, Perusahaan, Sistem |
-| Item menu | Tinggi 40 px, ikon 20 px + label gaya `label`. Hover: `bg-subtle` |
-| Item aktif | Latar `primary-soft`, teks emerald-800, garis kiri 3 px berwarna `primary` |
-| Badge angka | Pil kecil di kanan item: jumlah menunggu pada Persetujuan, jumlah terlambat pada Tugas |
-| Mode ringkas | Lebar 72 px, hanya ikon; label muncul sebagai tooltip. Otomatis pada lebar 1024–1279 px |
-| Kaki | Tombol ringkas/lebarkan dan nomor versi aplikasi |
+#### A. User Portal Sidebar (7 Menu Wajib)
+1. **Dashboard:** Dashboard pribadi, jam masuk/pulang, ringkasan daily report, pengajuan cuti terakhir.
+2. **Profile:** Profil lengkap karyawan, nomor telepon, kontak darurat, foto profil.
+3. **Absensi:** Dual-card interface Absen Pagi (Masuk) & Absen Sore (Pulang), jam realtime kantor WIB, Scan QR Code kamera, riwayat kehadiran harian, dan pengajuan koreksi absensi.
+4. **Pengajuan Izin:** Form permohonan izin kerja (sakit, acara keluarga, darurat, dll) tanpa kuota tahunan.
+5. **Daily Report:** Grid tabel spreadsheet harian (inline editing, autosave, simpan laporan, catatan review atasan).
+6. **Riwayat:** Riwayat komprehensif (absensi bulanan, perizinan, arsip daily report).
+7. **Notifikasi:** Pusat notifikasi dan pengingat personal.
 
-### 3.4 Topbar
+#### B. Management Backend Sidebar (13 Menu Wajib)
+1. **Dashboard:** Rekap metrik operasional perusahaan (live database, bukan dummy).
+2. **Employee Management:** CRUD karyawan, penempatan departemen, manager penanggung jawab, mutasi.
+3. **Department & Position:** Struktur organisasi Herbal, Fashion MY PH, Shopee Video, HR Department.
+4. **Attendance Management:** Rekap Absen Pagi & Absen Sore harian/bulanan, penanganan telat, log durasi kerja, **layar monitor Dynamic QR kantor (TV terminal)**.
+5. **Leave & Approval:** Persetujuan cuti/izin, koreksi absensi, dan delegasi approval.
+6. **Daily Report Management:** Review laporan harian tim (*Accept* atau *Request Revision* dengan catatan), rekap produktivitas, ekspor Excel.
+7. **KPI & Performance:** Evaluasi kinerja berbobot per jabatan, target, pencapaian.
+8. **Payroll:** Komponen gaji, hari hadir, slip gaji, dengan isolasi privasi ketat (Manager dilarang intip).
+9. **Reports & Export:** Laporan manajemen dan ekspor data ke Excel/PDF.
+10. **Notifications:** Notifikasi sistem dan broadcast.
+11. **User & Role Management:** Manajemen akun pengguna, role Spatie, dan matriks permission.
+12. **System Settings:** Jam kerja, hari libur, profil perusahaan.
+13. **Audit Logs:** Log teknis audit aktivitas sistem dan perubahan sensitif.
 
-| Posisi | Isi |
-|---|---|
-| Kiri | Tombol menu (hanya pada lebar ≤ 1023 px), lalu breadcrumb |
-| Kanan | Pencarian cepat karyawan (hanya bagi pemilik cakupan tim/semua), lonceng notifikasi dengan angka belum dibaca (C-24), menu pengguna |
-| Menu pengguna | Avatar, nama, jabatan → Profil Saya, Ganti Password, Keluar |
+### 3.3 Topbar & Portal Switcher
 
-### 3.5 Kepala halaman
-
-- Judul (`h1`), deskripsi satu kalimat (`text-secondary`, opsional), dan **satu** tindakan utama di kanan.
-- Tindakan lain memakai tombol sekunder atau menu "Lainnya".
-- Breadcrumb tampil pada halaman dengan kedalaman dua tingkat atau lebih (mis. Karyawan / Nama Karyawan).
-- Di HP, tindakan utama menjadi tombol selebar layar di bawah judul. Pada halaman daftar panjang, tombol itu menempel di atas navigasi bawah.
-
-### 3.6 Navigasi bawah (HP)
-
-Lima slot, ikon 24 px + label 12 px. Item aktif berwarna `primary`. Slot terakhir "Lainnya" membuka laci berisi menu lengkap sesuai role.
-
-| Pengguna | Slot 1 | Slot 2 | Slot 3 | Slot 4 | Slot 5 |
-|---|---|---|---|---|---|
-| Staff | Beranda | Absensi | Cuti | Notifikasi (F1) → Tugas (F2) | Lainnya |
-| Manager, Manager Operasional | Beranda | Absensi | Persetujuan | Cuti (F1) → Tugas (F2) | Lainnya |
-| HR Admin | Beranda | Absensi | Persetujuan | Karyawan | Lainnya |
-| Management Viewer | Beranda | Laporan | Notifikasi | – | Lainnya |
-| System Admin | Beranda | Pengaturan | Notifikasi | – | Lainnya |
+| Posisi | Komponen | Penjelasan |
+|---|---|---|
+| Kiri | Logo + **Portal Switcher** | Dropdown tombol untuk beralih antara "User Portal" dan "Management Backend" (hanya muncul bagi role yang memiliki izin manajemen) |
+| Tengah | Breadcrumb / Navigasi Halaman | Indikator posisi hierarki halaman |
+| Kanan | Pencarian Cepat | Pencarian karyawan (hanya yang memiliki permission view_team/all) |
+| Kanan | Lonceng Notifikasi | Badge angka notifikasi belum dibaca (C-24) |
+| Kanan | User Menu Dropdown | Avatar, Nama, Role → Profil Saya, Ganti Password, Keluar |
 
 ---
 
-## 4. Navigasi per Role
+## 4. Matriks Akses Menu per Portal
 
-Kolom: **STF** Staff · **MGR** Department Manager · **OPS** Operations Manager · **HR** HR Admin · **FIN** Finance Staff · **MGT** Management Viewer · **SA** System Admin. Isi sel menyebut cakupan data yang tampil; "–" berarti menu tidak dirender.
+Setiap menu pada Management Backend hanya dirender jika pengguna memiliki permission yang sesuai. Jika tidak memiliki akses manajemen apa pun (misal Staff biasa), pengguna hanya dapat mengakses **User Portal**.
 
-| Menu | Grup | STF | MGR | OPS | HR | FIN | MGT | SA | Fase |
-|---|---|---|---|---|---|---|---|---|:-:|
-| Dashboard | – | Ya | Ya | Ya | Ya | Ya | Ya | Ya | F1 |
-| Absensi | Saya | Sendiri | Sendiri | Sendiri | Sendiri | Sendiri | – | – | F1 |
-| Cuti & Izin | Saya | Sendiri | Sendiri | Sendiri | Sendiri | Sendiri | – | – | F1 |
-| Tugas | Saya | Sendiri | Sendiri | Sendiri | Sendiri | Sendiri | – | – | F2 |
-| Checklist Harian | Saya | Sendiri | Sendiri | Sendiri | Sendiri | Sendiri | – | – | F2 |
-| KPI | Saya | Sendiri | Sendiri | Sendiri | Sendiri | Sendiri | – | – | F2 |
-| Slip Gaji | Saya | Sendiri | Sendiri | Sendiri | Sendiri | Sendiri | – | – | F3 |
-| Persetujuan | Tim | – | Tim | Tim | Tim + tahap HR | – | – | – | F1 |
-| Absensi Tim | Tim | – | Tim | Semua (lihat) | Semua (kelola) | – | Semua (lihat) | – | F1 |
-| Kalender Cuti | Tim | Departemen, tanpa jenis | Tim | Tim | Semua | Departemen, tanpa jenis | Semua | – | F1 |
-| Tugas Tim | Tim | – | Tim | Semua | – | – | Semua (lihat) | – | F2 |
-| KPI Tim | Tim | – | Tim | Tim | Semua (rekap) | – | Semua (lihat) | – | F2 |
-| Karyawan | Perusahaan | – | Tim | Semua (lihat) | Semua (kelola) | Direktori | Semua (lihat) | Direktori | F1 |
-| Laporan | Perusahaan | – | Tim | Semua | Semua | Payroll | Semua | – | F1 |
-| Payroll | Perusahaan | – | – | – | Kelola | Kelola | Laporan | – | F3 |
-| Rekrutmen | Perusahaan | – | Kandidat departemen | – | Kelola | – | Lihat | – | F3 |
-| Pengaturan | Sistem | – | – | – | Sebagian | – | – | Semua | F1 |
-| Audit Log | Sistem | – | – | – | Ya | – | – | Ya | F1 |
-| Notifikasi (lonceng) | Topbar | Ya | Ya | Ya | Ya | Ya | Ya | Ya | F1 |
-| Profil Saya (menu pengguna) | Topbar | Ya | Ya | Ya | Ya | Ya | Ya | Ya | F1 |
+| Menu | Portal | Staff | Dept Manager | Ops Manager | HR Admin | Finance | Owner | System Admin |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Semua Menu User Portal** | User Portal | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Dashboard Management | Backend | – | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Employee Management | Backend | – | ✔ (tim) | ✔ (lihat) | ✔ (kelola) | ✔ (direktori) | ✔ (lihat) | ✔ (direktori) |
+| Department & Position | Backend | – | – | – | ✔ | – | ✔ (lihat) | ✔ (kelola) |
+| Attendance Management | Backend | – | ✔ (tim) | ✔ (lihat) | ✔ (kelola) | – | ✔ (lihat) | – |
+| Leave & Approval | Backend | – | ✔ (tim) | ✔ (tim) | ✔ (semua) | – | ✔ (lihat) | – |
+| Daily Report Management | Backend | – | ✔ (tim) | ✔ (semua) | – | – | ✔ (semua) | – |
+| KPI & Performance | Backend | – | ✔ (tim) | ✔ (tim) | ✔ (rekap) | – | ✔ (lihat) | – |
+| Payroll | Backend | – | – | – | ✔ (kelola) | ✔ (kelola) | ✔ (rekap) | – |
+| Reports & Export | Backend | – | ✔ (tim) | ✔ (semua) | ✔ (semua) | ✔ (gaji) | ✔ (semua) | – |
+| User & Role Management | Backend | – | – | – | – | – | – | ✔ |
+| System Settings | Backend | – | – | – | ✔ (sebagian) | – | – | ✔ |
+| Audit Logs | Backend | – | – | – | ✔ (lihat) | – | ✔ (lihat) | ✔ |
 
 Aturan navigasi:
 
@@ -822,65 +814,56 @@ Stepper tiga langkah (C-20):
 
 ---
 
-### P-08 — Absensi Saya (F1)
+### P-08 — Absensi QR Code Saya (User Portal)
 
-**Tujuan:** clock-in/out secepat mungkin, lalu melihat riwayat sendiri. **Requirement:** FR-ATT-01, 02, 03, 05, 08, 11, 16; BR-ATT-05, BR-ATT-10. **Tindakan utama:** Clock-in / Clock-out.
+**Tujuan:** Memindai QR Code kantor via kamera HP/browser untuk mencatat jam masuk dan pulang secara valid.  
+**Requirement:** FR-ATT-01, 02, 03, 11, 18; BR-ATT-01–05.  
+**Tindakan utama:** Buka Scanner & Pindai QR.
 
 ```text
 +----------------------------------+
-| Absensi              [Lonceng 2] |
+| Absensi QR           [Lonceng 2] |
 +----------------------------------+
 | +------------------------------+ |
 | |  Jumat, 9 Okt 2026           | |
 | |          08:02:14            | |
-| |  WIB - Jadwal 08:00-16:00    | |
+| |  Jadwal: 08:00 - 17:00 WIB   | |
 | |                              | |
-| |  [        Clock-in        ]  | |
-| |  Batas tepat waktu 08:10     | |
+| |  [  [o] SCAN QR MASUK  ]     | |
+| |  [  [o] SCAN QR PULANG ]     | |
+| |                              | |
+| |  Status: Belum Absen Masuk   | |
 | +------------------------------+ |
-| Oktober 2026             [<] [>] |
-| Hadir 6   Terlambat 1   Izin 0   |
-| Cuti 0    Alpa 0   Jam 38 j 55 m |
 | +------------------------------+ |
-| | Kam 8  07:56-16:03  [Hadir]  | |
-| | Rab 7  08:14- ...            | |
-| |  [Terlambat 14 mnt]          | |
-| |  [Lupa clock-out] [Koreksi]  | |
-| | Sel 6  07:59-16:01  [Hadir]  | |
+| | Modal / Laci Scanner Kamera  | |
+| | [======= Viewfinder =======] | |
+| | Arahkan kamera ke QR kantor  | |
+| | [ Batal ]                    | |
 | +------------------------------+ |
-+----------------------------------+
-| Beranda Absensi Cuti Notif Lain  |
+| Riwayat Bulan Ini        [<] [>] |
+| Hadir 18   Terlambat 2  Izin 1   |
+| +------------------------------+ |
+| | Kam 8  07:56 - 17:02 [Hadir] | |
+| | Rab 7  08:14 - 17:05 [Telat] | |
+| +------------------------------+ |
 +----------------------------------+
 ```
 
-**Keadaan widget jam (C-26):**
+- **Alur Scanner:** Memilih "Scan QR Masuk" atau "Scan QR Pulang" → perizinan kamera browser → pemindaian otomatis kode QR kantor → request verifikasi token ke server → feedback instan berupa suara/getar + toast sukses warna hijau emerald.
+- **Validasi Server:** Browser tidak dapat memalsukan jam; status kehadiran dihitung di server.
+- Mencegah scan ganda (double submission).
 
-| Keadaan | Tampilan |
-|---|---|
-| Belum clock-in | Jam berjalan, jadwal, tombol utama **Clock-in** (`lg`), teks "Batas tepat waktu 08:10" |
-| Sudah clock-in | "Masuk 07:58" + badge status, durasi berjalan "Sudah bekerja 3 j 12 mnt", tombol utama **Clock-out** |
-| Clock-out sebelum jam pulang | Konfirmasi singkat: "Jam pulang Anda 16:00. Clock-out sekarang tercatat pulang cepat." [Batal] [Clock-out] |
-| Sudah clock-out | "Masuk 07:58 · Pulang 16:04 · Total 7 j 06 mnt", tanpa tombol, tautan "Ada yang salah? Ajukan koreksi" |
-| Ada cuti/izin disetujui hari ini | Alert info "Anda sedang Cuti Tahunan hari ini. Clock-in tidak tersedia." dan tautan ke pengajuannya |
-| Hari libur atau di luar hari kerja | Keterangan "Hari libur: (nama)" dan tombol sekunder "Clock-in di hari libur" |
-| Menyimpan | Tombol berstatus memuat dan tidak bisa ditekan lagi |
-| Gagal karena jaringan | Alert bahaya "Clock-in belum tersimpan. Periksa koneksi lalu coba lagi." [Coba lagi] |
-| Di luar jaringan kantor (bila FR-ATT-17 aktif) | Alert "Clock-in hanya bisa dilakukan dari jaringan kantor." |
+---
 
-- Jam yang tampil adalah **waktu server** (disinkronkan saat halaman dimuat), bukan jam perangkat.
-- Riwayat di HP berupa daftar per hari, terbaru di atas. Di desktop: kalender bulan (C-22) di kiri dan tabel harian di kanan.
-- Hari yang bermasalah (lupa clock-out, Alpa) punya tombol **Koreksi** yang membuka P-10 dengan tanggal terisi.
+### P-09 — Attendance Management & Dynamic QR Display (Management Backend)
 
-**Diterima bila:** clock-in selesai dalam 2 ketukan; ketukan ganda tidak menghasilkan dua record; status hari ini terlihat tanpa menggulir pada layar 360 × 640 px.
+**Requirement:** FR-ATT-09, 10, 12, 13, 17, 18.  
+**Tindakan utama:** Tampilkan QR Dinamis Kantor & Ekspor Rekap.
 
-### P-09 — Absensi Tim (F1)
-
-**Requirement:** FR-ATT-09, 10, 12, 13. **Tindakan utama:** Ekspor (dan Kunci Periode bagi HR).
-
-- **Tab Harian:** pemilih tanggal (bawaan: hari ini), filter departemen (bagi cakupan semua) dan status. Kartu ringkas Hadir · Terlambat · Belum absen · Izin/Sakit/Cuti · Alpa; mengeklik kartu menyaring tabel. Kolom tabel: Karyawan, Jadwal, Masuk, Pulang, Durasi, Status, Sumber (ikon bila hasil koreksi atau input HR), Aksi.
-- **Tab Rekap:** pemilih periode (minggu atau bulan; bawaan: bulan berjalan). Kolom: Karyawan, Hari kerja, Hadir, Terlambat, Menit terlambat, Izin, Sakit, Cuti, Alpa, Lupa clock-out, Jam kerja; baris total di bawah. Klik baris membuka rincian harian karyawan itu.
-- **Kunci periode (HR):** tombol **Kunci Periode** dengan konfirmasi bahaya. Setelah terkunci, alert inline "Periode Oktober 2026 dikunci oleh (nama) pada (waktu)" dan tombol "Buka Kunci" (wajib alasan).
-- **Ubah manual (HR):** modal berisi nilai tercatat saat ini, jam masuk, jam pulang, status, dan alasan\*.
+- **Layar Dynamic QR (Display Kantor):** Halaman fullscreen mode TV/Monitor kantor yang memancarkan QR Code besar dengan timer berputar (regenerasi token setiap 30–60 detik). Terdapat jam digital server besar dan status koneksi live.
+- **Tab Monitoring Harian:** Daftar karyawan hadir, terlambat, izin/cuti, dan alpa hari ini dengan filter departemen.
+- **Tab Rekap Bulanan:** Rekap total jam kerja, akumulasi keterlambatan, dan ekspor Excel untuk payroll.
+- **Kunci Periode:** Penguncian rekap absensi bulanan sebelum data diproses ke penggajian.HR):** modal berisi nilai tercatat saat ini, jam masuk, jam pulang, status, dan alasan\*.
 - **HP:** tab Harian menjadi kartu per karyawan; tab Rekap digulir mendatar dengan kolom nama terkunci.
 
 **Diterima bila:** angka kartu ringkas sama dengan jumlah baris terfilter; Manager tidak melihat tombol ubah manual dan kunci; status kunci periode selalu terlihat.
@@ -901,40 +884,36 @@ Stepper tiga langkah (C-20):
 
 ---
 
-### P-11 — Cuti Saya dan Form Pengajuan (F1)
+### P-11 — Pengajuan Izin Saya dan Form Perizinan (User Portal)
 
-**Tujuan:** melihat saldo dan mengajukan cuti/izin tanpa salah hitung. **Requirement:** FR-LEV-01, 02, 03, 05, 06, 07; BR-LEV-04, 05, 06. **Tindakan utama:** Ajukan Cuti.
+**Tujuan:** Mengajukan izin tidak masuk kerja (izin sakit, ada acara, keperluan keluarga, atau mendesak) tanpa batasan kuota cuti tahunan.  
+**Requirement:** FR-LEV-01 s.d. FR-LEV-09; BR-LEV-01 s.d. BR-LEV-04.  
+**Tindakan utama:** Ajukan Izin.
 
-**Halaman Cuti Saya**
+**Halaman Pengajuan Izin Saya**
 
-- Kartu saldo untuk tiap jenis yang memotong saldo: "Cuti Tahunan — sisa 6 hari", dengan rincian kecil "Jatah 12 · Terpakai 4 · Dicadangkan 2" dan batang progres.
-- Daftar pengajuan: jenis, tanggal, jumlah hari, badge status, dan pemegang saat ini ("di Dimas Pratama"). Filter status dan tahun. Klik membuka P-13.
+- Kartu statistik izin: Total Izin Diajukan, Izin Sakit, dan Izin Acara & Keperluan.
+- Daftar pengajuan: tanggal pengajuan, jenis perizinan, rentang tanggal, alasan, dan badge status (`Menunggu`, `Disetujui`, `Ditolak`).
 
-**Form pengajuan, HP:**
+**Form pengajuan izin:**
 
 ```text
 +----------------------------------+
-| < Ajukan Cuti / Izin             |
+| < Form Pengajuan Izin Kerja      |
 +----------------------------------+
-| Jenis *                          |
-| [ Cuti Tahunan                v] |
-| Sisa saldo: 8 hari               |
+| Jenis Izin *                     |
+| [ Izin Sakit / Ada Acara       v]|
 |                                  |
 | Mulai *          Selesai *       |
 | [14 Okt 2026]    [15 Okt 2026]   |
 |                                  |
-| +------------------------------+ |
-| | Terhitung 2 hari kerja       | |
-| | Sisa saldo setelah ini: 6    | |
-| | Persetujuan: Atasan, lalu HR | |
-| +------------------------------+ |
+| Alasan Izin *                    |
+| [ Jelaskan alasan perizinan... ] |
 |                                  |
-| Alasan *                         |
-| [                              ] |
-| Lampiran (opsional)              |
-| [ Pilih berkas ]                 |
+| Lampiran / Bukti (opsional)      |
+| [ Surat dokter / undangan dll  ] |
 |                                  |
-| [         Ajukan Cuti         ]  |
+| [      Kirim Pengajuan Izin    ] |
 +----------------------------------+
 ```
 
@@ -1018,50 +997,79 @@ Susunan: kepala (jenis, pemohon, badge status, pemegang saat ini) → ringkasan 
 
 ---
 
-### P-15 — Tugas (F2)
+### P-15 — Daily Report Spreadsheet (User Portal)
 
-**Requirement:** FR-TSK-01, 02, 10, 11, 13. **Tindakan utama:** Buat Tugas (pemegang izin penugasan).
+**Tujuan:** Mengisi laporan pekerjaan harian layaknya bekerja di spreadsheet yang responsif, cepat, tervalidasi, dan mendukung autosave draf setiap hari tanpa proses approval administratif yang memblokir.  
+**Requirement:** FR-DREP-01 s.d. FR-DREP-06, FR-DREP-10; BR-DREP-01, 02, 03.  
+**Tindakan utama:** Simpan & Kirim Laporan.
 
-- **Lingkup (tab):** Tugas Saya | Tim | Semua, sesuai izin. **Tampilan:** Daftar | Papan.
-- **Tugas Saya** dikelompokkan: Terlambat, Hari ini, Minggu ini, Nanti, Selesai (terlipat).
-- **Daftar:** Judul (dengan ikon lampiran dan komentar), PIC, Prioritas, Tenggat (dengan penanda terlambat), Progres, Status.
-- **Papan (C-23):** kolom Belum dimulai | Dikerjakan | Menunggu review | Revisi | Selesai. Kartu memuat judul, avatar PIC, tenggat, prioritas, dan progres checklist ("3/5").
-  - Kartu hanya bisa dipindah lewat transisi yang sah; kolom yang tidak sah meredup saat kartu diseret.
-  - Transisi yang butuh isian (bukti hasil, catatan revisi) memunculkan modal sebelum kartu berpindah.
-- **Form Buat Tugas** (laci kanan): Judul\*, Deskripsi, Departemen\*, PIC\* (pencarian dalam cakupan), Anggota, Reviewer (bawaan: saya), Prioritas\* (bawaan: Sedang), Tanggal mulai, Tenggat\*, Checklist, Lampiran.
-- **HP:** hanya tampilan daftar berkelompok; papan tidak ditampilkan.
+```text
++--------------------------------------------------------------------------------------+
+| Daily Report Hari Ini                                         [Draf: Tersimpan 15:42] |
+| Jumat, 9 Okt 2026   [< Hari Sebelumnya] [Hari Ini] [Hari Berikutnya >]              |
+| Departemen: Herbal · Posisi: Staff Copywriter · Status: [Sudah Diisi (Terkirim)]      |
++--------------------------------------------------------------------------------------+
+| [ + Tambah Baris ]   [ Pasang Template Divisi ]        [ Simpan Draft ] [ Kirim Laporan ]
++---+-----------+-------------+----------------------+--------------------+-----------+--------+
+|No | Mulai     | Selesai     | Aktivitas *          | Hasil / Output     | Status    | Aksi   |
++---+-----------+-------------+----------------------+--------------------+-----------+--------+
+| 1 | 08:30     | 10:00       | Riset keyword herbal | 15 keyword potensial| [Completed] [Dup][x] |
+| 2 | 10:00     | 12:00       | Drafting script VT 1 | Script draft 1 jadi| [Completed] [Dup][x] |
+| 3 | 13:00     | 15:30       | Voice over review    | Revisi VO selesai  | [Completed] [Dup][x] |
+| 4 | 15:30     | 17:00       | Koordinasi editor    | Brief edit video   | [In Progress][Dup][x]|
++---+-----------+-------------+----------------------+--------------------+-----------+--------+
+| Catatan / Masukan dari Atasan (Jika ada):                                             |
+| "Riset keyword sudah bagus. Lanjutkan fokus ke variasi hook Shopee Video untuk besok"|
++--------------------------------------------------------------------------------------+
+```
 
-**Diterima bila:** tugas terlambat dikenali tanpa membuka detail; kartu tidak bisa dipindah ke status yang tidak sah; staff tidak melihat tombol Buat Tugas.
+- **Fitur Interaksi Spreadsheet:**
+  - **Inline Cell Editing:** Sel waktu, teks, dan status dapat diketik langsung tanpa modal berulang.
+  - **Tambah & Hapus Baris:** Baris baru dibuat instan dengan nomor urut otomatis (+), serta opsi duplikasi baris.
+  - **Autosave Status Indicator:** Chip status di pojok kanan: *"Menyimpan..."* → *"✓ Tersimpan"*.
+  - **Simpan & Kirim Laporan:** Memvalidasi seluruh baris (waktu selesai ≥ waktu mulai, minimal 1 aktivitas terisi). Status berubah menjadi `submitted` tanpa mengunci akses edit karyawan jika ingin menambahkan aktivitas lanjutan.
+  - **Kartu Catatan Atasan:** Jika atasan memberikan catatan/feedback kerja, kartu berwarna biru langit tampil di atas tabel menampilkan arahan atau apresiasi atasan.
 
-### P-16 — Detail Tugas (F2)
+---
 
-**Requirement:** FR-TSK-03 s.d. 09, 14, 15, 19.
+### P-16 — Monitoring & Catatan Daily Report (Management Backend)
 
-- **Desktop, dua kolom.** Kiri: judul, deskripsi, checklist (centang mengubah progres), bukti hasil, komentar (C-27). Kanan: status, PIC, reviewer, anggota, prioritas, tenggat, departemen, pembuat, lalu riwayat aktivitas (C-14).
-- **Tombol utama berubah menurut peran dan status:**
+**Tujuan:** Memantau pengisian laporan harian tim secara real-time dan memberikan catatan/feedback arahan kerja langsung tanpa sistem persetujuan/penolakan (approval/rejection) bertingkat.  
+**Requirement:** FR-DREP-07 s.d. FR-DREP-13; BR-DREP-02, 03, 04.  
+**Tindakan utama:** Pantau Laporan & Beri Catatan Masukan.
 
-| Peran | Status | Tombol |
-|---|---|---|
-| PIC | Belum dimulai | Mulai Kerjakan |
-| PIC | Dikerjakan, Revisi | Kirim untuk Review — modal berisi catatan hasil, tautan, lampiran (minimal satu) |
-| Reviewer | Menunggu review | Setujui Hasil; Minta Revisi (modal, catatan wajib) |
-| Reviewer | Selesai | Buka Kembali (di menu aksi) |
-| Pembuat atau manager | Selain Selesai dan Dibatalkan | Ubah, Ganti PIC, Batalkan (di menu aksi) |
+```text
++--------------------------------------------------------------------------------------+
+| Monitoring & Catatan Daily Report                               [ Ekspor Excel (.xlsx) ] |
+| Pantau pengisian laporan kerja harian staf dan berikan catatan arahan kerja langsung. |
++--------------------------------------------------------------------------------------+
+| [ Tanggal: 9 Okt 2026 v ] [ Status: Semua v ] [ Catatan: Semua v ] [ Cari Karyawan... ] |
++--------------------------------------------------------------------------------------+
+| Karyawan         Posisi           Waktu Kirim   Aktivitas  Status       Catatan Atasan Aksi |
+| (AV) Rina Putri  Staff Copywriter 17:05 WIB     4 entri    [Sudah Diisi] [Ada Catatan]  [Lihat]|
+| (AV) Andi Wijaya Staff Marketing  17:12 WIB     6 entri    [Sudah Diisi] [Belum Ada]   [Catat]|
+| (AV) Siti Aminah Staff Riset      -             0 entri    [Draft]       [Belum Ada]   [-]    |
++--------------------------------------------------------------------------------------+
+| Drawer / Modal Detail & Catatan: Rina Putri (9 Okt 2026)                             |
+| +----------------------------------------------------------------------------------+ |
+| | No | Waktu       | Aktivitas            | Hasil               | Status   | Catatan| |
+| | 1  | 08:30-10:00 | Riset keyword herbal | 15 keyword potensial| Completed| -      | |
+| | 2  | 10:00-12:00 | Drafting script VT 1 | Script draft 1 jadi | Completed| -      | |
+| +----------------------------------------------------------------------------------+ |
+| Catatan / Masukan dari Atasan:                                                        |
+| [ Tulis apresiasi, arahan teknis, atau catatan kinerja untuk karyawan...           ] |
+|                                                         [ Simpan Catatan Atasan ]   |
++--------------------------------------------------------------------------------------+
+```
 
-- Saat berstatus Revisi, catatan revisi terakhir tampil sebagai alert oranye di atas.
-- **HP:** satu kolom, panel info terlipat, tombol utama menempel di bawah.
+- **Aksi Reviewer / Atasan:**
+  - **Beri Catatan Atasan:** Menuliskan saran, evaluasi hasil, atau arahan kerja di textarea dan menyimpannya. Catatan langsung tersimpan di database dan langsung terbaca oleh karyawan di User Portal.
+  - **Tidak ada opsi Tolak / Setujui:** Tidak ada blocking approval; atasan mendampingi kinerja melalui feedback berkelanjutan.
+- **Rekap Produktivitas:** Menampilkan ringkasan jam kerja riil tim dan jumlah tugas tuntas per departemen.
 
-**Diterima bila:** PIC mengetahui langkah berikutnya dari satu tombol; catatan revisi tidak mungkin terlewat; riwayat menunjukkan siapa melakukan apa dan kapan.
+**Diterima bila:** Karyawan dapat mengisi tabel aktivitas dengan mudah setiap hari; validasi memastikan waktu selesai tidak mendahului waktu mulai; atasan dapat memantau laporan tim serta menyimpan catatan masukan tanpa sistem penolakan/persetujuan yang memblokir karyawan.
 
-### P-17 — Checklist Harian (F2)
-
-**Requirement:** FR-TSK-16, 17, 18; BR-TSK-06, 07.
-
-- **Staff (HP):** tanggal hari ini dan progres "3 dari 5". Item berupa kotak centang besar (target sentuh 48 px). Centang tersimpan langsung tanpa tombol simpan. Bila semua tuntas: "Checklist hari ini tuntas." Di bawahnya riwayat 7 hari terakhir (tuntas, terlewat, libur, cuti).
-- **Manager:** tabel kepatuhan; baris = karyawan, kolom = tanggal dalam minggu berjalan, sel = tuntas / sebagian ("3/5") / terlewat / cuti / libur, ditambah persen kepatuhan per orang. Klik sel membuka rincian. Sel Terlewat punya aksi **Maafkan** (alasan wajib).
-- **Kelola template:** daftar template dan form (judul, item, sasaran, pola ulang, perlu review atau tidak).
-
-**Diterima bila:** mencentang satu item cukup satu ketukan; hari cuti dan hari libur tidak pernah tampil sebagai terlewat.
+---
 
 ### P-18 — KPI Saya dan KPI Tim (F2)
 
