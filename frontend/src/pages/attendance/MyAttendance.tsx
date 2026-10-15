@@ -17,9 +17,10 @@ import {
   CheckCircle2, 
   AlertCircle,
   Camera,
-  RefreshCw
+  RefreshCw,
+  Upload
 } from 'lucide-react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import api from '../../lib/api';
 
 export function MyAttendance() {
@@ -27,6 +28,10 @@ export function MyAttendance() {
   const [isScanModalOpen, setScanModalOpen] = useState(false);
   const [scanType, setScanType] = useState<'pagi' | 'sore'>('pagi');
   const [scanResult, setScanResult] = useState<{ type: 'success' | 'error'; message: string; time?: string } | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isCameraStarting, setIsCameraStarting] = useState(false);
+  const scannerRef = React.useRef<Html5Qrcode | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [attendances, setAttendances] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -91,6 +96,7 @@ export function MyAttendance() {
   const openScanModal = (type: 'pagi' | 'sore') => {
     setScanType(type);
     setScanResult(null);
+    setCameraError(null);
     setScanModalOpen(true);
   };
 
@@ -134,52 +140,133 @@ export function MyAttendance() {
     document.body.removeChild(link);
   };
 
-  useEffect(() => {
-    if (isScanModalOpen && !scanResult) {
-      // Tunggu elemen dom siap
-      const timer = setTimeout(() => {
-        try {
-          const scanner = new Html5QrcodeScanner('reader', { qrbox: { width: 240, height: 240 }, fps: 5 }, false);
-          scanner.render(
-            async (result) => {
-              try {
-                scanner.clear();
-              } catch (e) {}
-
-              try {
-                const response = await api.post('/attendance/scan', { 
-                  token: result,
-                  type: scanType 
-                });
-                const now = new Date();
-                const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} WIB`;
-                setScanResult({
-                  type: 'success',
-                  message: response.data.message || 'Presensi berhasil dicatat!',
-                  time: nowTime
-                });
-                fetchAttendances();
-              } catch (error: any) {
-                setScanResult({
-                  type: 'error',
-                  message: error.response?.data?.error || 'Gagal memverifikasi QR Code. Pastikan scan QR aktif di layar kantor.'
-                });
-              }
-            },
-            () => {}
-          );
-
-          return () => {
-            scanner.clear().catch(() => {});
-          };
-        } catch (e) {
-          console.error(e);
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
         }
-      }, 100);
-
-      return () => clearTimeout(timer);
+        scannerRef.current.clear();
+      } catch (e) {
+        // Abaikan error saat stop
+      }
+      scannerRef.current = null;
     }
-  }, [isScanModalOpen, scanType, scanResult]);
+  };
+
+  const handleScanSuccess = async (decodedText: string) => {
+    await stopScanner();
+    try {
+      const response = await api.post('/attendance/scan', { 
+        token: decodedText,
+        type: scanType 
+      });
+      const now = new Date();
+      const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} WIB`;
+      setScanResult({
+        type: 'success',
+        message: response.data.message || 'Presensi berhasil dicatat!',
+        time: nowTime
+      });
+      fetchAttendances();
+    } catch (error: any) {
+      setScanResult({
+        type: 'error',
+        message: error.response?.data?.error || 'Gagal memverifikasi QR Code. Pastikan scan QR aktif di layar kantor.'
+      });
+    }
+  };
+
+  const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      await stopScanner();
+      const html5QrCode = new Html5Qrcode('reader-file-temp');
+      const decodedText = await html5QrCode.scanFile(file, true);
+      handleScanSuccess(decodedText);
+    } catch (err: any) {
+      alert('QR Code tidak terdeteksi pada gambar. Pastikan gambar jelas dan tidak buram.');
+    } finally {
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (isScanModalOpen && !scanResult) {
+      setCameraError(null);
+      setIsCameraStarting(true);
+
+      const timer = setTimeout(async () => {
+        if (isCancelled) return;
+        const readerElem = document.getElementById('reader');
+        if (!readerElem) return;
+
+        try {
+          const html5QrCode = new Html5Qrcode('reader');
+          scannerRef.current = html5QrCode;
+
+          const config = { 
+            fps: 10, 
+            qrbox: { width: 220, height: 220 },
+            aspectRatio: 1.0
+          };
+
+          // Prioritaskan kamera belakang (environment), fallback ke kamera depan/webcam (user)
+          try {
+            await html5QrCode.start(
+              { facingMode: 'environment' },
+              config,
+              (decodedText) => {
+                if (!isCancelled) handleScanSuccess(decodedText);
+              },
+              () => {}
+            );
+          } catch (firstErr) {
+            console.warn('Kamera belakang tidak tersedia, mencoba kamera depan/webcam:', firstErr);
+            await html5QrCode.start(
+              { facingMode: 'user' },
+              config,
+              (decodedText) => {
+                if (!isCancelled) handleScanSuccess(decodedText);
+              },
+              () => {}
+            );
+          }
+
+          if (!isCancelled) {
+            setIsCameraStarting(false);
+          }
+        } catch (err: any) {
+          console.error('Camera startup error:', err);
+          if (!isCancelled) {
+            setIsCameraStarting(false);
+            const msg = err?.toString?.() || '';
+            if (msg.includes('NotAllowedError') || msg.includes('Permission')) {
+              setCameraError('Izin akses kamera diblokir oleh browser. Silakan klik ikon gembok di sebelah kiri alamat web (URL) browser Anda dan ubah status Kamera menjadi "Izinkan" (Allow).');
+            } else if (msg.includes('NotFoundError') || msg.includes('DevicesNotFoundError')) {
+              setCameraError('Tidak ada perangkat kamera yang terdeteksi pada perangkat ini.');
+            } else if (msg.includes('NotReadableError')) {
+              setCameraError('Kamera sedang digunakan oleh aplikasi lain.');
+            } else {
+              setCameraError('Tidak dapat membuka kamera. Pastikan browser memiliki izin akses kamera.');
+            }
+          }
+        }
+      }, 200);
+
+      return () => {
+        isCancelled = true;
+        clearTimeout(timer);
+        stopScanner();
+      };
+    } else {
+      stopScanner();
+    }
+  }, [isScanModalOpen, scanResult, scanType]);
 
   const calculateDuration = (timeIn?: string, timeOut?: string) => {
     if (!timeIn || !timeOut) return '-';
@@ -638,8 +725,10 @@ export function MyAttendance() {
       <Modal
         isOpen={isScanModalOpen}
         onClose={() => {
+          stopScanner();
           setScanModalOpen(false);
           setScanResult(null);
+          setCameraError(null);
         }}
         title={`Scan QR - ${scanType === 'pagi' ? 'Absen Pagi' : 'Absen Sore'}`}
       >
@@ -674,7 +763,10 @@ export function MyAttendance() {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setScanResult(null)}
+                    onClick={() => {
+                      setScanResult(null);
+                      setCameraError(null);
+                    }}
                     leftIcon={<RefreshCw className="w-4 h-4" />}
                   >
                     Coba Lagi
@@ -684,8 +776,10 @@ export function MyAttendance() {
                   variant="primary" 
                   size="sm"
                   onClick={() => {
+                    stopScanner();
                     setScanModalOpen(false);
                     setScanResult(null);
+                    setCameraError(null);
                   }}
                 >
                   Tutup
@@ -695,27 +789,85 @@ export function MyAttendance() {
           ) : (
             /* Tampilan Scanner Kamera Aktif */
             <div className="w-full flex flex-col items-center">
-              {/* Petunjuk Satu Kalimat */}
-              <p className="text-xs text-text-secondary text-center mb-4">
+              <p className="text-xs text-text-secondary text-center mb-3">
                 Arahkan kamera ke QR di layar kantor
               </p>
 
-              {/* Wadah Scanner Kamera Html5QrcodeScanner */}
-              <div 
-                id="reader" 
-                className="w-full max-w-[280px] sm:max-w-xs overflow-hidden rounded-xl border border-border-default shadow-xs bg-slate-900/5 min-h-[260px] flex items-center justify-center"
-              >
-                <div className="text-center p-4 text-xs text-text-muted flex flex-col items-center gap-2">
-                  <Camera className="w-6 h-6 text-text-muted animate-pulse" />
-                  <span>Mempersiapkan kamera...</span>
+              {cameraError ? (
+                <div className="w-full max-w-xs p-4 rounded-xl bg-danger-subtle border border-danger-subtle text-center space-y-3">
+                  <AlertCircle className="w-8 h-8 text-danger-fg mx-auto" />
+                  <p className="text-xs text-danger-fg font-medium leading-relaxed">
+                    {cameraError}
+                  </p>
+                  <div className="pt-2 flex flex-col gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCameraError(null);
+                        setIsCameraStarting(true);
+                      }}
+                      leftIcon={<RefreshCw className="w-4 h-4" />}
+                      className="w-full"
+                    >
+                      Coba Buka Kamera Lagi
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs text-primary font-medium hover:underline inline-flex items-center justify-center gap-1.5 py-1"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Atau upload foto/screenshot QR
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="w-full max-w-[280px] sm:max-w-xs flex flex-col items-center">
+                  <div 
+                    id="reader" 
+                    className="w-full overflow-hidden rounded-xl border border-border-default shadow-xs bg-slate-900 min-h-[260px] flex items-center justify-center relative"
+                  >
+                    {isCameraStarting && (
+                      <div className="text-center p-4 text-xs text-slate-300 flex flex-col items-center gap-2">
+                        <Camera className="w-6 h-6 text-slate-400 animate-pulse" />
+                        <span>Membuka kamera...</span>
+                        <span className="text-[11px] text-slate-400">Pastikan klik "Izinkan" jika browser meminta izin kamera</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-3 text-center">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs text-text-secondary hover:text-primary transition-colors inline-flex items-center gap-1.5"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Bermasalah dengan kamera? Unggah foto QR
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Element tersembunyi untuk fallback scan gambar */}
+              <div id="reader-file-temp" className="hidden" />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileScan}
+              />
 
               <div className="mt-4 pt-3 border-t border-border-default w-full text-center">
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => setScanModalOpen(false)}
+                  onClick={() => {
+                    stopScanner();
+                    setScanModalOpen(false);
+                  }}
                   className="w-full sm:w-auto"
                 >
                   Batal
