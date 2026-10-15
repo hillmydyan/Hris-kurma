@@ -15,8 +15,13 @@ docker compose build hris
 echo ">> Menjalankan service..."
 docker compose up -d
 
-# 4. Tunggu container siap
-sleep 3
+# 4. Tunggu database MySQL benar-benar siap menerima koneksi
+echo ">> Menunggu database siap..."
+until docker compose exec -T db mysqladmin ping -h "localhost" --silent; do
+    echo "Menunggu inisialisasi MySQL..."
+    sleep 2
+done
+echo ">> Database siap!"
 
 # 5. Jalankan migrasi database
 echo ">> Menjalankan migrasi database..."
