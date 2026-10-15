@@ -20,12 +20,15 @@ docker compose build hris
 echo ">> Menjalankan service..."
 docker compose up -d
 
-# 4. Tunggu database MySQL benar-benar siap menerima koneksi
+# 4. Tunggu database MySQL benar-benar siap menerima koneksi dari Laravel
 echo ">> Menunggu database siap..."
+sleep 5
 until docker compose exec -T db mysqladmin ping -h "localhost" --silent; do
     echo "Menunggu inisialisasi MySQL..."
     sleep 2
 done
+# Beri jeda 3 detik untuk transisi startup final MySQL
+sleep 3
 echo ">> Database siap!"
 
 # 5. Jalankan migrasi database
