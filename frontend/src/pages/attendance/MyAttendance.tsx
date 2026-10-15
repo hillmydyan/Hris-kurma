@@ -183,8 +183,17 @@ export function MyAttendance() {
 
     try {
       await stopScanner();
-      const html5QrCode = new Html5Qrcode('reader-file-temp');
+      const tempId = 'reader-file-temp-' + Date.now();
+      const tempElem = document.createElement('div');
+      tempElem.id = tempId;
+      tempElem.style.display = 'none';
+      document.body.appendChild(tempElem);
+
+      const html5QrCode = new Html5Qrcode(tempId);
       const decodedText = await html5QrCode.scanFile(file, true);
+      html5QrCode.clear();
+      tempElem.remove();
+
       handleScanSuccess(decodedText);
     } catch (err: any) {
       alert('QR Code tidak terdeteksi pada gambar. Pastikan gambar jelas dan tidak buram.');
@@ -824,15 +833,16 @@ export function MyAttendance() {
                 </div>
               ) : (
                 <div className="w-full max-w-[280px] sm:max-w-xs flex flex-col items-center">
-                  <div 
-                    id="reader" 
-                    className="w-full overflow-hidden rounded-xl border border-border-default shadow-xs bg-slate-900 min-h-[260px] flex items-center justify-center relative"
-                  >
+                  <div className="relative w-full overflow-hidden rounded-xl border border-border-default shadow-xs bg-slate-900 min-h-[260px] flex items-center justify-center">
+                    {/* Wadah murni untuk video Html5Qrcode - TANPA ANAK REACT AGAR TIDAK BENTROK */}
+                    <div id="reader" className="w-full h-full min-h-[260px]" />
+
+                    {/* Overlay React terpisah (sibling) di atas reader */}
                     {isCameraStarting && (
-                      <div className="text-center p-4 text-xs text-slate-300 flex flex-col items-center gap-2">
-                        <Camera className="w-6 h-6 text-slate-400 animate-pulse" />
-                        <span>Membuka kamera...</span>
-                        <span className="text-[11px] text-slate-400">Pastikan klik "Izinkan" jika browser meminta izin kamera</span>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-center p-4 z-10 pointer-events-none">
+                        <Camera className="w-6 h-6 text-slate-400 animate-pulse mb-2" />
+                        <span className="text-xs text-slate-200 font-medium">Membuka kamera...</span>
+                        <span className="text-[11px] text-slate-400 mt-1">Pastikan klik "Izinkan" jika browser meminta izin</span>
                       </div>
                     )}
                   </div>
@@ -850,8 +860,6 @@ export function MyAttendance() {
                 </div>
               )}
 
-              {/* Element tersembunyi untuk fallback scan gambar */}
-              <div id="reader-file-temp" className="hidden" />
               <input
                 ref={fileInputRef}
                 type="file"
