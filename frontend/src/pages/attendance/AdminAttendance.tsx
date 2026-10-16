@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { QRCodeSVG } from 'qrcode.react';
+import { CustomQrCode } from '../../components/ui/CustomQrCode';
 import { RefreshCw, Download, Search, Filter, Loader2, Printer, ShieldCheck, CheckCircle2, AlertTriangle, Building, Sparkles, Calendar, Tv, RotateCcw } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { Table, TableHeader, TableRow, TableHead, TableCell } from '../../components/ui/Table';
@@ -51,15 +51,17 @@ export function AdminAttendance() {
   };
 
   const downloadQrAsPng = (elementId: string, filename: string) => {
-    const svg = document.getElementById(elementId) as unknown as SVGSVGElement;
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const svg = el.tagName.toLowerCase() === 'svg' ? (el as unknown as SVGSVGElement) : el.querySelector('svg');
     if (!svg) return;
     const svgData = new XMLSerializer().serializeToString(svg);
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = img.width || 600;
+      canvas.height = img.height || 600;
       if (ctx) {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -77,7 +79,8 @@ export function AdminAttendance() {
   const handlePrintPoster = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    const svg = document.getElementById('daily-qr-svg') as unknown as SVGSVGElement;
+    const el = document.getElementById('daily-qr-svg');
+    const svg = el ? (el.tagName.toLowerCase() === 'svg' ? el : el.querySelector('svg')) : null;
     const svgHtml = svg ? svg.outerHTML : '';
 
     printWindow.document.write(`
@@ -88,10 +91,10 @@ export function AdminAttendance() {
         <style>
           @page { size: A4 portrait; margin: 15mm; }
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; color: #1e293b; padding: 24px; margin: 0; }
-          .header { border-bottom: 3px solid #4f46e5; padding-bottom: 14px; margin-bottom: 20px; }
-          .logo { font-size: 28px; font-weight: 800; color: #4f46e5; letter-spacing: -0.5px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+          .header { border-bottom: 3px solid #0f4c3a; padding-bottom: 14px; margin-bottom: 20px; }
+          .logo { font-size: 28px; font-weight: 800; color: #0f4c3a; letter-spacing: -0.5px; display: flex; align-items: center; justify-content: center; gap: 10px; }
           .sublogo { font-size: 13px; color: #64748b; margin-top: 4px; }
-          .date-badge { display: inline-block; background: #eef2ff; border: 1.5px solid #4f46e5; color: #3730a3; font-weight: 700; font-size: 13px; padding: 6px 18px; border-radius: 9999px; margin-top: 12px; }
+          .date-badge { display: inline-block; background: #f0fdf4; border: 1.5px solid #0f4c3a; color: #064e3b; font-weight: 700; font-size: 13px; padding: 6px 18px; border-radius: 9999px; margin-top: 12px; }
           .title { font-size: 22px; font-weight: 700; margin: 18px 0 8px 0; color: #0f172a; }
           .desc { font-size: 13px; color: #475569; max-width: 480px; margin: 0 auto 20px auto; line-height: 1.5; }
           .qr-box { display: inline-block; padding: 20px; border: 3px solid #e2e8f0; border-radius: 16px; background: white; margin-bottom: 20px; }
@@ -220,8 +223,15 @@ export function AdminAttendance() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : qrToken ? (
-              <div className="p-4 bg-white rounded-xl shadow-sm border border-border-default mb-6">
-                <QRCodeSVG id="dynamic-qr-svg" value={qrToken} size={256} level="H" includeMargin />
+              <div className="mb-6">
+                <CustomQrCode
+                  id="dynamic-qr-svg"
+                  value={qrToken}
+                  size={240}
+                  color="#0F4C3A"
+                  showBrandLabel={true}
+                  brandText="KURMA GROUP"
+                />
               </div>
             ) : (
               <div className="w-64 h-64 flex flex-col items-center justify-center border-2 border-dashed border-border-default rounded-md text-text-muted">
@@ -474,7 +484,14 @@ export function AdminAttendance() {
                   </div>
                 ) : dailyQrToken ? (
                   <>
-                    <QRCodeSVG id="daily-qr-svg" value={dailyQrToken} size={220} level="H" includeMargin />
+                    <CustomQrCode
+                      id="daily-qr-svg"
+                      value={dailyQrToken}
+                      size={220}
+                      color="#0F4C3A"
+                      showBrandLabel={true}
+                      brandText="KURMA GROUP"
+                    />
                     <p className="text-[11px] font-mono text-text-muted mt-2">
                       TOKEN: {dailyQrToken}
                     </p>
@@ -524,8 +541,15 @@ export function AdminAttendance() {
                 </div>
               </div>
 
-              <div className="flex flex-col items-center justify-center p-4 bg-white rounded-xl border border-border-default shadow-sm">
-                <QRCodeSVG id="session-qr-svg" value={qrToken} size={220} level="H" includeMargin />
+              <div className="flex flex-col items-center justify-center p-2 bg-transparent">
+                <CustomQrCode
+                  id="session-qr-svg"
+                  value={qrToken}
+                  size={220}
+                  color="#0F4C3A"
+                  showBrandLabel={true}
+                  brandText="KURMA GROUP"
+                />
                 <p className="text-[11px] font-mono text-text-muted mt-2">
                   TOKEN SESI: {qrToken.slice(0, 20)}...
                 </p>

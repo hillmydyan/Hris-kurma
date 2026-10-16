@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import { CustomQrCode } from '../../components/ui/CustomQrCode';
 import { 
   Clock, 
   RefreshCw, 
@@ -184,8 +184,8 @@ export function QrScreen() {
 
       {/* 3. QR Code: Hitam di atas putih polos dengan margin putih, tanpa logo/efek */}
       <div className="shrink-0 flex flex-col items-center">
-        <div className="p-3.5 bg-white border border-border-default rounded-xl shadow-xs flex items-center justify-center">
-          {isLoading && !token ? (
+        {isLoading && !token ? (
+          <div className="p-4 bg-white border border-border-default rounded-2xl shadow-xs flex items-center justify-center">
             <div 
               style={{ width: qrSize, height: qrSize }} 
               className="flex flex-col items-center justify-center text-text-muted space-y-2"
@@ -193,7 +193,9 @@ export function QrScreen() {
               <RefreshCw className="w-7 h-7 animate-spin text-primary" />
               <p className="text-xs font-medium">Memuat kode QR...</p>
             </div>
-          ) : isError ? (
+          </div>
+        ) : isError ? (
+          <div className="p-4 bg-white border border-border-default rounded-2xl shadow-xs flex items-center justify-center">
             <div 
               style={{ width: qrSize, height: qrSize }} 
               className="flex flex-col items-center justify-center text-center p-4"
@@ -211,17 +213,17 @@ export function QrScreen() {
                 Coba Lagi
               </button>
             </div>
-          ) : (
-            <QRCodeSVG
-              value={token}
-              size={qrSize}
-              level="H"
-              includeMargin={true}
-              fgColor="#000000"
-              bgColor="#FFFFFF"
-            />
-          )}
-        </div>
+          </div>
+        ) : (
+          <CustomQrCode
+            value={token}
+            size={qrSize}
+            color="#0F4C3A"
+            showBrandLabel={true}
+            brandText="KURMA GROUP"
+            className="border border-slate-200/90 shadow-sm"
+          />
+        )}
 
         {/* 4. Hitung Mundur: Teks + progress bar tipis lebar tetap */}
         <div className="mt-3 w-[280px] space-y-1.5">
