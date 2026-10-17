@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import api from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { getLocalDateString } from '../../utils/date';
 
 // Komponen jam terisolasi agar detak detik tidak me-render ulang seluruh halaman & scanner
 function LiveClock() {
@@ -56,6 +58,7 @@ function LiveClock() {
 }
 
 export function MyAttendance() {
+  const { user } = useAuth();
   const [isCorrectionModalOpen, setCorrectionModalOpen] = useState(false);
   const [isScanModalOpen, setScanModalOpen] = useState(false);
   const [scanType, setScanType] = useState<'pagi' | 'sore'>('pagi');
@@ -75,13 +78,19 @@ export function MyAttendance() {
   });
   const [submittingCorrection, setSubmittingCorrection] = useState(false);
 
+  const [filterMonth, setFilterMonth] = useState(() => getLocalDateString().slice(0, 7));
+
   useEffect(() => {
     fetchAttendances();
   }, []);
 
-  const fetchAttendances = async () => {
+  const fetchAttendances = async (monthVal?: string) => {
+    setLoading(true);
     try {
-      const response = await api.get('/attendance');
+      const activeMonth = monthVal !== undefined ? monthVal : filterMonth;
+      const params: any = { personal: 1 };
+      if (activeMonth) params.month = activeMonth;
+      const response = await api.get('/attendance', { params });
       const raw = response.data;
       const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
       setAttendances(list);
@@ -92,9 +101,11 @@ export function MyAttendance() {
     }
   };
 
-  // Find today's attendance record
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayAttendance = attendances.find((att: any) => att.date === todayStr);
+  // Find today's attendance record strictly for this employee in local date
+  const todayStr = getLocalDateString();
+  const todayAttendance = attendances.find((att: any) => 
+    att.date === todayStr && (!user?.employee?.id || !att.employee_id || att.employee_id === user.employee.id)
+  );
 
   const hasCheckedIn = Boolean(todayAttendance?.time_in);
   const hasCheckedOut = Boolean(todayAttendance?.time_out);
@@ -143,7 +154,7 @@ export function MyAttendance() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Riwayat_Absensi_${new Date().toISOString().slice(0, 7)}.csv`);
+    link.setAttribute('download', `Riwayat_Absensi_${getLocalDateString().slice(0, 7)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -557,10 +568,17 @@ export function MyAttendance() {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <input 
               type="month" 
-              defaultValue={new Date().toISOString().slice(0, 7)}
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
               className="h-8 px-2.5 rounded-md border border-border-default bg-surface text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            <Button variant="outline" size="sm" leftIcon={<Filter className="w-3.5 h-3.5 text-text-muted" />} className="h-8 text-xs">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              leftIcon={<Filter className="w-3.5 h-3.5 text-text-muted" />} 
+              className="h-8 text-xs"
+              onClick={() => fetchAttendances(filterMonth)}
+            >
               Filter
             </Button>
           </div>
@@ -615,10 +633,10 @@ export function MyAttendance() {
                         </TableCell>
                         <TableCell>
                           <Badge 
-                            variant={att.status === 'present' ? 'success' : isLate ? 'warning' : att.status === 'leave' ? 'info' : 'danger'}
+                            variant={att.status === 'leave' ? 'info' : (att.status === 'absent' || (!attIn && !attOut)) ? 'danger' : isLate ? 'warning' : 'success'}
                             dot
                           >
-                            {att.status === 'present' ? 'Hadir' : isLate ? 'Terlambat' : att.status === 'leave' ? 'Izin' : 'Alpa'}
+                            {att.status === 'leave' ? 'Izin' : (att.status === 'absent' || (!attIn && !attOut)) ? 'Alpa' : isLate ? 'Terlambat' : 'Hadir'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-text-secondary tabular-nums text-right">
@@ -655,10 +673,10 @@ export function MyAttendance() {
                         {formatDateIndo(att.date)}
                       </span>
                       <Badge 
-                        variant={att.status === 'present' ? 'success' : isLate ? 'warning' : att.status === 'leave' ? 'info' : 'danger'}
+                        variant={att.status === 'leave' ? 'info' : (att.status === 'absent' || (!attIn && !attOut)) ? 'danger' : isLate ? 'warning' : 'success'}
                         dot
                       >
-                        {att.status === 'present' ? 'Hadir' : isLate ? 'Terlambat' : att.status === 'leave' ? 'Izin' : 'Alpa'}
+                        {att.status === 'leave' ? 'Izin' : (att.status === 'absent' || (!attIn && !attOut)) ? 'Alpa' : isLate ? 'Terlambat' : 'Hadir'}
                       </Badge>
                     </div>
 

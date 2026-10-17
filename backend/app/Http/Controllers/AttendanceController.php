@@ -21,37 +21,48 @@ class AttendanceController extends Controller
             || $user->can('attendance.view_team')
             || $user->hasAnyRole(['super-admin', 'owner', 'direksi', 'hr-manager', 'hr', 'dept-head', 'manager']);
 
-        if ($isManagementOrManager) {
-            $query = Attendance::with(['employee.currentAssignment.department', 'employee.currentAssignment.jobPosition'])->latest('date');
+        $isPersonal = $request->boolean('personal') || $request->has('my');
+
+        if ($isPersonal || !$isManagementOrManager) {
+            $employee = $user->employee;
+            if (!$employee) {
+                return response()->json(['data' => []]);
+            }
+
+            $query = $employee->attendances()->latest('date');
 
             if ($request->filled('date')) {
                 $query->where('date', $request->date);
             }
-            if ($request->filled('department_id')) {
-                $query->whereHas('employee.currentAssignment', function ($q) use ($request) {
-                    $q->where('department_id', $request->department_id);
-                });
-            }
-            if ($request->filled('search')) {
-                $search = $request->search;
-                $query->whereHas('employee', function ($q) use ($search) {
-                    $q->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('employee_id', 'like', "%{$search}%");
-                });
+            if ($request->filled('month')) {
+                $query->where('date', 'like', $request->month . '%');
             }
 
             $perPage = $request->input('per_page', 50);
             return response()->json($query->paginate($perPage));
         }
 
-        $employee = $user->employee;
-        if (!$employee) {
-            return response()->json(['error' => 'Profil karyawan tidak ditemukan.'], 403);
+        $query = Attendance::with(['employee.currentAssignment.department', 'employee.currentAssignment.jobPosition'])->latest('date');
+
+        if ($request->filled('date')) {
+            $query->where('date', $request->date);
+        }
+        if ($request->filled('department_id')) {
+            $query->whereHas('employee.currentAssignment', function ($q) use ($request) {
+                $q->where('department_id', $request->department_id);
+            });
+        }
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('employee', function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('employee_id', 'like', "%{$search}%");
+            });
         }
 
-        $attendances = $employee->attendances()->latest('date')->paginate(15);
-        return response()->json($attendances);
+        $perPage = $request->input('per_page', 50);
+        return response()->json($query->paginate($perPage));
     }
 
     /**

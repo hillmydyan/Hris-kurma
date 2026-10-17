@@ -10,6 +10,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/Pagination';
 import { Modal } from '../../components/ui/Modal';
 import api from '../../lib/api';
+import { getLocalDateString } from '../../utils/date';
 
 export function AdminAttendance() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export function AdminAttendance() {
 
   // States untuk Filter & Pencarian
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterDate, setFilterDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [filterDate, setFilterDate] = useState(() => getLocalDateString());
 
   // States untuk Unduh QR (Harian Khusus Hari Ini / Dinamis)
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
@@ -187,7 +188,7 @@ export function AdminAttendance() {
   };
 
   const handleResetFilter = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     setFilterDate(todayStr);
     setSearchTerm('');
     fetchAttendances(todayStr, '');
@@ -311,7 +312,7 @@ export function AdminAttendance() {
               <Button type="submit" variant="secondary" leftIcon={<Filter className="w-4 h-4" />} disabled={loadingAttendances}>
                 Filter
               </Button>
-              {(filterDate !== new Date().toISOString().split('T')[0] || searchTerm) && (
+              {(filterDate !== getLocalDateString() || searchTerm) && (
                 <Button type="button" variant="text" leftIcon={<RotateCcw className="w-4 h-4" />} onClick={handleResetFilter}>
                   Reset
                 </Button>
@@ -404,8 +405,8 @@ export function AdminAttendance() {
                         <span className="text-caption font-mono text-text-secondary">{duration}</span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={att.status === 'present' ? 'success' : att.status === 'late' ? 'warning' : 'danger'}>
-                          {att.status === 'present' ? 'Hadir' : att.status === 'late' ? 'Terlambat' : att.status === 'leave' ? 'Izin' : 'Alpa'}
+                        <Badge variant={att.status === 'leave' ? 'info' : (att.status === 'absent' || (!attIn && !attOut)) ? 'danger' : isLate ? 'warning' : 'success'}>
+                          {att.status === 'leave' ? 'Izin' : (att.status === 'absent' || (!attIn && !attOut)) ? 'Alpa' : isLate ? 'Terlambat' : 'Hadir'}
                         </Badge>
                       </TableCell>
                     </TableRow>

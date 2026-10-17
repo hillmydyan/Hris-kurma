@@ -29,6 +29,7 @@ import { useAuth } from '../context/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import { formatRupiah, printSlipDocument } from '../utils/slipGenerator';
+import { getLocalDateString } from '../utils/date';
 
 interface SummaryCardProps {
   title: string;
@@ -112,13 +113,13 @@ export function Dashboard() {
       fetchManagementOverview();
     } else {
       setLoadingRequests(true);
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getLocalDateString();
 
       Promise.allSettled([
         api.get('/leaves'),
         api.get('/workday-swaps'),
         api.get('/weekend-schedules'),
-        api.get('/attendance'),
+        api.get('/attendance?personal=1'),
         api.get('/attendance/my-summary'),
         api.get(`/daily-reports/today?date=${todayStr}`),
         api.get('/payroll/my-latest-slip')
@@ -146,14 +147,16 @@ export function Dashboard() {
           setAttendanceSummary(summary);
           if (summary.today_attendance) {
             setTodayAttendance(summary.today_attendance);
+          } else {
+            setTodayAttendance(null);
           }
         }
         if (attRes.status === 'fulfilled') {
           const raw = attRes.value.data;
           const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
           const myAtt = list.find((att: any) => 
-            (att.employee_id === user?.employee?.id || !att.employee_id) && att.date === todayStr
-          ) || list.find((att: any) => att.date === todayStr);
+            att.date === todayStr && (!user?.employee?.id || !att.employee_id || att.employee_id === user.employee.id)
+          );
           if (myAtt) {
             setTodayAttendance(myAtt);
           }

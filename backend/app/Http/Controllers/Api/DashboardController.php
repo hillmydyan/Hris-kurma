@@ -33,19 +33,7 @@ class DashboardController extends Controller
 
         $todayAttendances = $todayAttendancesQuery->limit(10)->get();
         $isTodayData = $todayAttendances->isNotEmpty();
-
-        // Jika hari ini belum ada karyawan yang absen, ambil data absensi terkini agar widget tetap informatif
-        $displayAttendances = $isTodayData 
-            ? $todayAttendances 
-            : Attendance::with([
-                'employee.currentAssignment.department',
-                'employee.currentAssignment.jobPosition'
-            ])
-            ->latest('date')
-            ->latest('time_in')
-            ->latest('created_at')
-            ->limit(6)
-            ->get();
+        $displayAttendances = $todayAttendances;
 
         $formattedAttendances = $displayAttendances->map(function ($att) {
             $emp = $att->employee;
