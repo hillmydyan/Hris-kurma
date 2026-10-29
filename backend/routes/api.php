@@ -78,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('employees', EmployeeController::class);
     Route::post('employees/{employee}/photo', [EmployeeController::class, 'updatePhoto']);
     Route::put('employees/{employee}/photo', [EmployeeController::class, 'updatePhoto']);
+    Route::delete('employees/{employee}/photo', [EmployeeController::class, 'deletePhoto']);
     Route::post('employees/{employee}/documents', [EmployeeController::class, 'uploadDocument']);
     Route::post('settings/bulk', [SettingController::class, 'updateBulk']);
     Route::apiResource('settings', SettingController::class);

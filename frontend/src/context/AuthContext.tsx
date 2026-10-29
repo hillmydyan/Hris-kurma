@@ -51,7 +51,7 @@ interface AuthContextType {
   logout: () => void;
   switchPortal: (mode: PortalMode) => void;
   refreshUser: () => Promise<void>;
-  updateUserPhoto: (photoUrl: string) => void;
+  updateUserPhoto: (photoUrl: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -163,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('portal_mode', mode);
   };
 
-  const updateUserPhoto = (photoUrl: string) => {
+  const updateUserPhoto = (photoUrl: string | null) => {
     setUser((prev) => {
       if (!prev) return prev;
       const updated: User = {

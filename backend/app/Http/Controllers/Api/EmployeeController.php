@@ -265,6 +265,33 @@ class EmployeeController extends Controller
         return response()->json(['error' => 'Tidak ada file foto yang diunggah.'], 400);
     }
 
+    public function deletePhoto(Request $request, string $id)
+    {
+        $employee = Employee::findOrFail($id);
+
+        $user = $request->user();
+        $isHrOrAdmin = $user->hasAnyRole(['super-admin', 'owner', 'direksi', 'hr-manager', 'hr']);
+        $isSelf = $user->employee && (string)$user->employee->id === (string)$employee->id;
+
+        if (!$isHrOrAdmin && !$isSelf) {
+            return response()->json(['error' => 'Anda tidak memiliki hak untuk menghapus foto karyawan ini.'], 403);
+        }
+
+        if ($employee->photo && Storage::disk('public')->exists($employee->photo)) {
+            Storage::disk('public')->delete($employee->photo);
+        }
+
+        $employee->photo = null;
+        $employee->save();
+
+        return response()->json([
+            'message' => 'Foto profil berhasil dihapus.',
+            'photo' => null,
+            'photo_url' => null,
+            'employee' => $employee->load(['user', 'currentAssignment.department', 'currentAssignment.jobPosition']),
+        ]);
+    }
+
     public function export(Request $request)
     {
         $format = strtolower($request->query('format', 'xlsx'));
