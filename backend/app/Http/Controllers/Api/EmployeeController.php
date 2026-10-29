@@ -225,6 +225,46 @@ class EmployeeController extends Controller
         return response()->json(['message' => 'Document deleted']);
     }
 
+    public function updatePhoto(Request $request, string $id)
+    {
+        $employee = Employee::findOrFail($id);
+
+        $user = $request->user();
+        $isHrOrAdmin = $user->hasAnyRole(['super-admin', 'owner', 'direksi', 'hr-manager', 'hr']);
+        $isSelf = $user->employee && (string)$user->employee->id === (string)$employee->id;
+
+        if (!$isHrOrAdmin && !$isSelf) {
+            return response()->json(['error' => 'Anda tidak memiliki hak untuk mengubah foto karyawan ini.'], 403);
+        }
+
+        $request->validate([
+            'photo' => 'required|file|mimes:jpg,jpeg,png,webp|max:2048',
+        ], [
+            'photo.required' => 'File foto wajib dipilih.',
+            'photo.mimes' => 'Format foto harus berupa JPG, JPEG, PNG, atau WEBP.',
+            'photo.max' => 'Ukuran foto maksimal adalah 2 MB.',
+        ]);
+
+        if ($request->hasFile('photo')) {
+            if ($employee->photo && Storage::disk('public')->exists($employee->photo)) {
+                Storage::disk('public')->delete($employee->photo);
+            }
+
+            $path = $request->file('photo')->store('employee-photos', 'public');
+            $employee->photo = $path;
+            $employee->save();
+
+            return response()->json([
+                'message' => 'Foto profil berhasil diperbarui.',
+                'photo' => $path,
+                'photo_url' => $employee->photo_url,
+                'employee' => $employee->load(['user', 'currentAssignment.department', 'currentAssignment.jobPosition']),
+            ]);
+        }
+
+        return response()->json(['error' => 'Tidak ada file foto yang diunggah.'], 400);
+    }
+
     public function export(Request $request)
     {
         $format = strtolower($request->query('format', 'xlsx'));

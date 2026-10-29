@@ -4,6 +4,7 @@ import {
   LayoutDashboard, 
   QrCode, 
   Calendar, 
+  CalendarDays,
   FileSpreadsheet, 
   Bell, 
   User, 
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuth, isManagerOnly } from '../../context/AuthContext';
 import api from '../../lib/api';
+import { Avatar } from '../ui/Avatar';
 
 interface SidebarMenuItem {
   name: string;
@@ -315,9 +317,12 @@ export function Sidebar({ isOpen, onClose, isCompact, toggleCompact }: SidebarPr
           {!isCompact ? (
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center min-w-0">
-                <div className="w-8 h-8 rounded-full bg-subtle text-text-primary flex items-center justify-center font-semibold text-xs shrink-0 border border-border-default">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                </div>
+                <Avatar
+                  src={user?.employee?.photo_url || user?.employee?.photo}
+                  name={user?.name}
+                  idKey={user?.employee?.id || user?.id}
+                  size="sm"
+                />
                 <div className="ml-2.5 truncate">
                   <p className="text-xs font-semibold text-text-primary truncate">{user?.name || 'User Kurma'}</p>
                   <p className="text-[11px] text-text-muted truncate">

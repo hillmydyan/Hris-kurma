@@ -203,6 +203,13 @@ export function AdminAttendance() {
         </div>
         <div className="flex items-center gap-2">
           <Button 
+            variant="outline" 
+            leftIcon={<Calendar className="w-4 h-4" />}
+            onClick={() => navigate('/admin/penggajian')}
+          >
+            Koreksi Absen
+          </Button>
+          <Button 
             variant="secondary" 
             leftIcon={<Tv className="w-4 h-4" />}
             onClick={() => navigate('/admin/absensi/qr-screen')}

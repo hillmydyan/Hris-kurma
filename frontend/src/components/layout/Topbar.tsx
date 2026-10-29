@@ -3,6 +3,7 @@ import { Menu, Bell, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
+import { Avatar } from '../ui/Avatar';
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -65,9 +66,12 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           aria-label={`Profil ${user?.name || 'Pengguna'}`}
           title={`Profil: ${user?.name || 'Pengguna'}`}
         >
-          <div className="w-8 h-8 rounded-full bg-primary-soft text-primary font-semibold flex items-center justify-center shrink-0 text-xs border border-primary/20">
-            {user?.name ? user.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
-          </div>
+          <Avatar
+            src={user?.employee?.photo_url || user?.employee?.photo}
+            name={user?.name}
+            idKey={user?.employee?.id || user?.id}
+            size="sm"
+          />
         </Link>
       </div>
     </header>

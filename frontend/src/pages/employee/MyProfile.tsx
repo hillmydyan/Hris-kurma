@@ -4,6 +4,7 @@ import api from '../../lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { ProfilePhotoUploader } from '../../components/employee/ProfilePhotoUploader';
 import { 
   User, 
   Briefcase, 
@@ -15,7 +16,7 @@ import {
 } from 'lucide-react';
 
 export function MyProfile() {
-  const { user } = useAuth();
+  const { user, updateUserPhoto, refreshUser } = useAuth();
   const emp = user?.employee;
   const assignment = emp?.current_assignment;
 
@@ -95,11 +96,24 @@ export function MyProfile() {
 
       {/* Header Profil: Kartu Putih Sederhana & Avatar Inisial */}
       <Card className="border-border-default shadow-xs bg-surface">
-        <CardContent className="p-4 sm:p-5 flex items-center gap-4">
-          {/* Avatar Bulat Berisi Inisial */}
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-primary-soft text-primary font-bold text-xl sm:text-2xl flex items-center justify-center border border-primary/20 shrink-0 select-none">
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-          </div>
+        <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+          {/* Avatar Bulat dengan Fitur Ubah Foto */}
+          {emp?.id ? (
+            <ProfilePhotoUploader
+              employeeId={emp.id}
+              currentPhotoUrl={emp.photo_url || emp.photo}
+              name={user?.name}
+              size="lg"
+              onSuccess={(newUrl) => {
+                updateUserPhoto(newUrl);
+                refreshUser();
+              }}
+            />
+          ) : (
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-primary-soft text-primary font-bold text-xl sm:text-2xl flex items-center justify-center border border-primary/20 shrink-0 select-none">
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+          )}
 
           {/* Nama, Status, & Jabatan / Departemen */}
           <div className="min-w-0 flex-1">

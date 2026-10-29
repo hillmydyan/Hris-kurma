@@ -33,9 +33,34 @@ class Employee extends Model
         'bank_name',
         'bank_account_number',
         'bank_account_holder',
+        'photo',
     ];
 
-    protected $appends = ['total_salary', 'full_name'];
+    protected $appends = ['total_salary', 'full_name', 'photo_url'];
+
+    public function getPhotoUrlAttribute()
+    {
+        if (!$this->photo) {
+            return null;
+        }
+        if (str_starts_with($this->photo, 'http://') || str_starts_with($this->photo, 'https://') || str_starts_with($this->photo, 'data:')) {
+            return $this->photo;
+        }
+
+        $cleanPath = 'storage/' . ltrim($this->photo, '/');
+
+        // Gunakan request host jika ada context HTTP request
+        if (function_exists('request') && request() && request()->getHttpHost()) {
+            return request()->getSchemeAndHttpHost() . '/' . $cleanPath;
+        }
+
+        $appUrl = rtrim(config('app.url') ?: 'http://localhost:8000', '/');
+        if ($appUrl === 'http://localhost' || $appUrl === 'http://127.0.0.1') {
+            $appUrl .= ':8000';
+        }
+
+        return $appUrl . '/' . $cleanPath;
+    }
 
     public function getTotalSalaryAttribute()
     {

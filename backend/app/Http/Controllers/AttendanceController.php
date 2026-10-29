@@ -11,6 +11,28 @@ use Illuminate\Support\Str;
 
 class AttendanceController extends Controller
 {
+    const AFTERNOON_START = '15:00:00';
+    const AFTERNOON_END   = '17:00:00';
+
+    /**
+     * Get server time and afternoon attendance window status.
+     */
+    public function serverTime()
+    {
+        $afternoonStart = config('attendance.afternoon_start', self::AFTERNOON_START);
+        $afternoonEnd = config('attendance.afternoon_end', self::AFTERNOON_END);
+        $now = Carbon::now('Asia/Jakarta');
+        $timeStr = $now->format('H:i:s');
+
+        return response()->json([
+            'server_time' => $now->toIso8601String(),
+            'current_time_wib' => $now->format('H:i:s') . ' WIB',
+            'afternoon_start' => substr($afternoonStart, 0, 5),
+            'afternoon_end' => substr($afternoonEnd, 0, 5),
+            'is_afternoon_active' => ($timeStr >= $afternoonStart && $timeStr <= $afternoonEnd),
+        ]);
+    }
+
     /**
      * Get attendance list (personal or admin/team depending on role).
      */
@@ -34,8 +56,17 @@ class AttendanceController extends Controller
             if ($request->filled('date')) {
                 $query->where('date', $request->date);
             }
-            if ($request->filled('month')) {
+            if ($request->filled('month') && $request->filled('year')) {
+                $monthStr = sprintf('%04d-%02d', $request->year, $request->month);
+                $query->where('date', 'like', $monthStr . '%');
+            } elseif ($request->filled('month')) {
                 $query->where('date', 'like', $request->month . '%');
+            } elseif ($request->filled('year')) {
+                $query->where('date', 'like', $request->year . '%');
+            }
+
+            if ($request->boolean('all') || $request->input('per_page') === 'all') {
+                return response()->json($query->get());
             }
 
             $perPage = $request->input('per_page', 50);
@@ -44,8 +75,19 @@ class AttendanceController extends Controller
 
         $query = Attendance::with(['employee.currentAssignment.department', 'employee.currentAssignment.jobPosition'])->latest('date');
 
+        if ($request->filled('employee_id')) {
+            $query->where('employee_id', $request->employee_id);
+        }
         if ($request->filled('date')) {
             $query->where('date', $request->date);
+        }
+        if ($request->filled('month') && $request->filled('year')) {
+            $monthStr = sprintf('%04d-%02d', $request->year, $request->month);
+            $query->where('date', 'like', $monthStr . '%');
+        } elseif ($request->filled('month')) {
+            $query->where('date', 'like', $request->month . '%');
+        } elseif ($request->filled('year')) {
+            $query->where('date', 'like', $request->year . '%');
         }
         if ($request->filled('department_id')) {
             $query->whereHas('employee.currentAssignment', function ($q) use ($request) {
@@ -59,6 +101,10 @@ class AttendanceController extends Controller
                     ->orWhere('last_name', 'like', "%{$search}%")
                     ->orWhere('employee_id', 'like', "%{$search}%");
             });
+        }
+
+        if ($request->boolean('all') || $request->input('per_page') === 'all') {
+            return response()->json($query->get());
         }
 
         $perPage = $request->input('per_page', 50);
@@ -260,8 +306,19 @@ class AttendanceController extends Controller
         if ($scanType === 'sore' || $scanType === 'check_out' || (!$scanType && $attendance->exists && !$attendance->time_out)) {
             if ($attendance->time_out) {
                 return response()->json([
-                    'error' => 'Anda sudah melakukan Absen Sore hari ini pada ' . substr($attendance->time_out, 0, 5) . ' WIB.'
+                    'error' => 'Sudah absen sore hari ini'
                 ], 400);
+            }
+
+            // Validasi batas jam server (WIB, Asia/Jakarta): Hanya boleh 15.00–17.00
+            $afternoonStart = config('attendance.afternoon_start', self::AFTERNOON_START);
+            $afternoonEnd = config('attendance.afternoon_end', self::AFTERNOON_END);
+            $serverTimeWib = Carbon::now('Asia/Jakarta')->format('H:i:s');
+
+            if ($serverTimeWib < $afternoonStart || $serverTimeWib > $afternoonEnd) {
+                return response()->json([
+                    'error' => 'Absen sore hanya bisa dilakukan pukul 15.00–17.00'
+                ], 422);
             }
 
             $isEarly = Carbon::now()->format('H:i:s') < '16:00:00';
@@ -291,5 +348,104 @@ class AttendanceController extends Controller
         return response()->json([
             'error' => 'Anda telah menyelesaikan Absen Pagi (' . substr($attendance->time_in, 0, 5) . ' WIB) dan Absen Sore (' . substr($attendance->time_out, 0, 5) . ' WIB) hari ini.'
         ], 400);
+    }
+
+    /**
+     * Koreksi Absensi oleh HR/Admin dengan pencatatan audit log.
+     */
+    public function correct(Request $request)
+    {
+        $user = $request->user();
+        if (!$user->hasAnyRole(['super-admin', 'owner', 'direksi', 'hr-manager', 'hr'])) {
+            return response()->json(['error' => 'Hanya role HR/Admin yang berhak melakukan koreksi absensi.'], 403);
+        }
+
+        $validated = $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+            'date' => 'required|date',
+            'status' => 'required|string|in:present,late,leave,absent',
+            'notes' => 'nullable|string|max:500',
+            'time_in' => 'nullable|string',
+            'time_out' => 'nullable|string',
+        ]);
+
+        $employee = Employee::findOrFail($validated['employee_id']);
+
+        $attendance = Attendance::firstOrNew([
+            'employee_id' => $employee->id,
+            'date' => $validated['date'],
+        ]);
+
+        $oldStatus = $attendance->exists ? $attendance->status : 'none';
+        $newStatus = $validated['status'];
+        $oldNotes  = $attendance->notes;
+
+        $attendance->status = $newStatus;
+        $attendance->type = 'manual';
+        if (isset($validated['notes'])) {
+            $attendance->notes = $validated['notes'];
+        }
+
+        if ($newStatus === 'present') {
+            $attendance->time_in = $request->input('time_in', $attendance->time_in ?: '08:00:00');
+            $attendance->time_out = $request->input('time_out', $attendance->time_out ?: '16:00:00');
+        } elseif ($newStatus === 'late') {
+            $attendance->time_in = $request->input('time_in', ($attendance->time_in && $attendance->time_in > '08:15:00') ? $attendance->time_in : '08:30:00');
+            $attendance->time_out = $request->input('time_out', $attendance->time_out ?: '16:00:00');
+        } elseif ($newStatus === 'leave') {
+            $attendance->time_in = null;
+            $attendance->time_out = null;
+        }
+
+        $attendance->save();
+
+        // Hapus override koreksi manual statis agar kalkulasi payroll otomatis menggunakan data absensi terbaru
+        \App\Models\PayrollAdjustment::where('employee_id', $employee->id)->delete();
+
+        // Audit Log: Siapa yang mengubah, tanggal diubah, status lama -> status baru
+        \App\Models\AuditLog::create([
+            'user_id' => $user->id,
+            'action' => 'koreksi_absensi',
+            'model_type' => Attendance::class,
+            'model_id' => $attendance->id,
+            'old_values' => [
+                'employee_id' => $employee->id,
+                'employee_name' => $employee->full_name,
+                'date' => $validated['date'],
+                'status' => $oldStatus,
+                'notes' => $oldNotes,
+            ],
+            'new_values' => [
+                'employee_id' => $employee->id,
+                'employee_name' => $employee->full_name,
+                'date' => $validated['date'],
+                'status' => $newStatus,
+                'notes' => $attendance->notes,
+                'time_in' => $attendance->time_in,
+                'time_out' => $attendance->time_out,
+                'changed_by' => $user->name,
+                'changed_at' => Carbon::now('Asia/Jakarta')->toIso8601String(),
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return response()->json([
+            'message' => 'Absensi berhasil diperbarui',
+            'data' => $attendance->load('employee'),
+        ]);
+    }
+
+    /**
+     * Update koreksi absensi berdasarkan ID atau diteruskan ke correct().
+     */
+    public function update(Request $request, $id)
+    {
+        $attendance = Attendance::findOrFail($id);
+        $request->merge([
+            'employee_id' => $attendance->employee_id,
+            'date' => $attendance->date,
+        ]);
+        return $this->correct($request);
     }
 }

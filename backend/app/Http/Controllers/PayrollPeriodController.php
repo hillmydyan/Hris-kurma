@@ -21,24 +21,83 @@ class PayrollPeriodController extends Controller
 
     public function index()
     {
-        $periods = PayrollPeriod::latest()->get();
+        $dbPeriods = PayrollPeriod::withCount([
+            'records as published_count' => function ($q) {
+                $q->where('is_published', true);
+            },
+            'records as total_records_count'
+        ])->orderByDesc('start_date')->get();
+
+        $today = Carbon::now();
+        $baseDate = $today->day > 27 ? $today->copy()->addMonthNoOverflow() : $today->copy();
+        $standardPeriods = [];
+
+        for ($i = 0; $i < 12; $i++) {
+            $monthCursor = $baseDate->copy()->subMonthsNoOverflow($i);
+            $key = $monthCursor->format('Y-m');
+            $startDate = $monthCursor->copy()->subMonthNoOverflow()->day(28)->toDateString();
+            $endDate = $monthCursor->copy()->day(27)->toDateString();
+            $sCarbon = Carbon::parse($startDate);
+            $eCarbon = Carbon::parse($endDate);
+            $name = 'Periode 28 ' . $sCarbon->translatedFormat('M') . ' - 27 ' . $eCarbon->translatedFormat('M Y');
+
+            $found = $dbPeriods->first(function ($p) use ($key, $startDate, $endDate) {
+                return $p->period_key === $key || ($p->start_date == $startDate && $p->end_date == $endDate);
+            });
+
+            if (!$found) {
+                $standardPeriods[] = [
+                    'id' => null,
+                    'period_key' => $key,
+                    'name' => $name,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'pay_date' => $endDate,
+                    'status' => 'draft',
+                    'is_published' => false,
+                    'published_at' => null,
+                    'published_count' => 0,
+                    'total_records_count' => 0,
+                    'is_standard_cutoff' => true,
+                ];
+            }
+        }
+
         $activeEmployees = Employee::where('status', 'active')->get();
         $employeeCount = $activeEmployees->count();
-
-        // Standard estimate: 26 working days basis
         $monthlyPayrollTotal = $activeEmployees->sum(function ($e) {
             $basic = $e->basic_salary ?? 0;
             $meal = self::STANDARD_WORKING_DAYS * self::MEAL_RATE_PER_DAY;
             return $basic + $meal;
         });
 
-        $periods->transform(function ($p) use ($monthlyPayrollTotal, $employeeCount) {
-            $p->total_employees = $employeeCount;
-            $p->total_amount = $monthlyPayrollTotal;
-            return $p;
+        $mappedDb = $dbPeriods->map(function ($p) use ($monthlyPayrollTotal, $employeeCount) {
+            return [
+                'id' => $p->id,
+                'period_key' => $p->period_key,
+                'name' => $p->name,
+                'start_date' => $p->start_date ? Carbon::parse($p->start_date)->toDateString() : null,
+                'end_date' => $p->end_date ? Carbon::parse($p->end_date)->toDateString() : null,
+                'pay_date' => $p->pay_date ? Carbon::parse($p->pay_date)->toDateString() : null,
+                'status' => $p->status,
+                'is_published' => (bool)$p->is_published,
+                'published_at' => $p->published_at ? $p->published_at->translatedFormat('d M Y H:i') : null,
+                'published_count' => (int)($p->published_count ?? 0),
+                'total_employees' => $p->total_records_count > 0 ? (int)$p->total_records_count : $employeeCount,
+                'total_amount' => $monthlyPayrollTotal,
+                'is_standard_cutoff' => false,
+            ];
         });
 
-        return response()->json($periods);
+        $mappedStandard = collect($standardPeriods)->map(function ($sp) use ($monthlyPayrollTotal, $employeeCount) {
+            $sp['total_employees'] = $employeeCount;
+            $sp['total_amount'] = $monthlyPayrollTotal;
+            return $sp;
+        });
+
+        $all = $mappedDb->concat($mappedStandard)->sortByDesc('start_date')->values();
+
+        return response()->json($all);
     }
 
     /**
@@ -84,9 +143,15 @@ class PayrollPeriodController extends Controller
         $maxToleranceTime = self::MAX_ONTIME_TOLERANCE;
 
         return $employees->map(function ($e) use ($mealRatePerDay, $standardWorkingDays, $maxToleranceTime, $adjustments, $startDate, $endDate) {
+            $joinDate = $e->join_date ? Carbon::parse($e->join_date)->toDateString() : null;
+
+            // Jika karyawan baru bergabung setelah periode cut-off berakhir, tidak dimasukkan ke dalam payroll periode lalu ini (kecuali jika ada koreksi manual khusus)
+            if ($joinDate && $joinDate > $endDate && !isset($adjustments[$e->id])) {
+                return null;
+            }
+
             $basicSalary = (float)($e->basic_salary ?? 0);
             $dailyRate = $basicSalary > 0 ? round($basicSalary / $standardWorkingDays) : 0;
-            $joinDate = $e->join_date ? Carbon::parse($e->join_date)->toDateString() : null;
             $isNewJoiner = $joinDate && $joinDate > $startDate;
 
             $hasManualAdjustment = isset($adjustments[$e->id]);
@@ -112,6 +177,8 @@ class PayrollPeriodController extends Controller
                     $presentDays = $attendances->filter(fn($a) => in_array($a->status, ['present', 'late']))->count();
                     $presentDays = min($standardWorkingDays, $presentDays);
 
+                    $leaveDays = $attendances->filter(fn($a) => $a->status === 'leave')->count();
+
                     $eligibleMealDays = $attendances->filter(function ($a) use ($maxToleranceTime) {
                         return in_array($a->status, ['present', 'late']) && $a->time_in && substr($a->time_in, 0, 8) <= $maxToleranceTime;
                     })->count();
@@ -121,8 +188,8 @@ class PayrollPeriodController extends Controller
                         return in_array($a->status, ['present', 'late']) && $a->time_in && substr($a->time_in, 0, 8) > $maxToleranceTime;
                     })->count();
 
-                    $sickOrLeaveDays = $e->leaves ? $e->leaves->count() : 0;
-                    $unattendedDays = max(0, $standardWorkingDays - $presentDays);
+                    $sickOrLeaveDays = $leaveDays ?: ($e->leaves ? $e->leaves->count() : 0);
+                    $unattendedDays = max(0, $standardWorkingDays - $presentDays - $sickOrLeaveDays);
                     $adjustmentNote = null;
                     $isProrated = $isNewJoiner;
                 } elseif ($isNewJoiner) {
@@ -159,12 +226,20 @@ class PayrollPeriodController extends Controller
             }
 
             // PERHITUNGAN GAJI POKOK & PRORATA:
+            // Aturan Utama: Izin TIDAK memotong gaji pokok! (Hanya memotong uang makan Rp 11.000)
             if ($isProrated) {
+                // Hari yang berhak atas gaji pokok prorata = Hadir + Izin (Izin tidak memotong gaji pokok)
+                $payableDaysForSalary = min($standardWorkingDays, $presentDays + $sickOrLeaveDays);
+                if ($isNewJoiner && isset($workdayCount) && $workdayCount > $payableDaysForSalary) {
+                    $payableDaysForSalary = min($standardWorkingDays, $workdayCount);
+                }
+
                 $earnedBasicSalary = $basicSalary > 0 
-                    ? (float)round(($presentDays / $standardWorkingDays) * $basicSalary)
+                    ? (float)round(($payableDaysForSalary / $standardWorkingDays) * $basicSalary)
                     : 0;
                 $prorataDeduction = max(0, $basicSalary - $earnedBasicSalary);
             } else {
+                // Karyawan reguler: Gaji pokok 100% utuh, izin sama sekali TIDAK memotong gaji pokok
                 $earnedBasicSalary = $basicSalary;
                 $prorataDeduction = 0;
             }
@@ -223,7 +298,7 @@ class PayrollPeriodController extends Controller
                 'bank_account_holder' => $e->bank_account_holder ?? ($e->first_name . ' ' . ($e->last_name ?? '')),
                 'status' => $e->status,
             ];
-        });
+        })->filter()->values();
     }
 
     /**
@@ -257,7 +332,13 @@ class PayrollPeriodController extends Controller
 
         $employeeData = $employeeData->map(function ($emp) use ($publishedRecords) {
             $rec = $publishedRecords->get($emp['id']);
-            $emp['is_published'] = $rec ? (bool)$rec->is_published : false;
+            $isPublished = $rec ? (bool)$rec->is_published : false;
+            // Jika record sudah pernah dipublikasi dan memiliki snapshot_data resmi, gabungkan snapshot data
+            if ($isPublished && !empty($rec->snapshot_data) && is_array($rec->snapshot_data)) {
+                $snap = $rec->snapshot_data;
+                $emp = array_merge($emp, $snap);
+            }
+            $emp['is_published'] = $isPublished;
             $emp['published_at'] = $rec?->published_at ? $rec->published_at->translatedFormat('d M Y H:i') : null;
             $emp['payroll_record_id'] = $rec?->id;
             return $emp;
@@ -274,11 +355,23 @@ class PayrollPeriodController extends Controller
         $totalMealDeduction = $employeeData->sum('meal_deduction');
         $totalMonthlyPayroll = $employeeData->sum('total_salary');
 
+        // Tentukan nama periode secara dinamis dari database atau rentang tanggal
+        $periodLabel = $payrollPeriod?->name;
+        if (!$periodLabel) {
+            $sCarbon = Carbon::parse($startDate);
+            $eCarbon = Carbon::parse($endDate);
+            $periodLabel = 'Periode 28 ' . $sCarbon->translatedFormat('M') . ' - 27 ' . $eCarbon->translatedFormat('M Y');
+        }
+
+        // Cek apakah ini periode berjalan atau periode lalu
+        $isCurrentPeriod = ($periodKey === $defaultPeriodKey);
+
         return response()->json([
             'cutoff_start_date' => $startDate,
             'cutoff_end_date' => $endDate,
             'period_key' => $periodKey,
-            'period_label' => $defaultPeriodName,
+            'period_label' => $periodLabel,
+            'is_current_period' => $isCurrentPeriod,
             'standard_working_days' => self::STANDARD_WORKING_DAYS,
             'total_monthly_payroll' => $totalMonthlyPayroll,
             'total_basic_registered' => $totalBasicRegistered,

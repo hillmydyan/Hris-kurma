@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../lib/api';
+import { ProfilePhotoUploader } from '../../components/employee/ProfilePhotoUploader';
 
 export function EmployeeForm() {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ export function EmployeeForm() {
   const [departments, setDepartments] = useState<any[]>([]);
   const [jobPositions, setJobPositions] = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState<'pribadi' | 'pekerjaan' | 'gaji'>('pribadi');
+  const [currentPhotoUrl, setCurrentPhotoUrl] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     // 1. Data Diri
@@ -67,6 +69,7 @@ export function EmployeeForm() {
         if (isEdit) {
           const empRes = await api.get(`/employees/${id}`);
           const emp = empRes.data;
+          setCurrentPhotoUrl(emp.photo_url || emp.photo || null);
           setFormData({
             first_name: emp.first_name || '',
             last_name: emp.last_name || '',
@@ -329,6 +332,24 @@ export function EmployeeForm() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3.5">
+              {isEdit && id && (
+                <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-lg bg-subtle border border-border-default mb-2">
+                  <ProfilePhotoUploader
+                    employeeId={id}
+                    currentPhotoUrl={currentPhotoUrl}
+                    name={`${formData.first_name} ${formData.last_name || ''}`}
+                    size="lg"
+                    onSuccess={(newUrl) => setCurrentPhotoUrl(newUrl)}
+                  />
+                  <div className="text-center sm:text-left">
+                    <h3 className="text-xs font-semibold text-text-primary">Foto Profil Karyawan</h3>
+                    <p className="text-[11px] text-text-muted mt-0.5">
+                      Format JPG, JPEG, PNG, atau WEBP. Maksimal 2 MB. Arahkan kursor pada foto lalu klik untuk mengubah.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 <Input 
                   name="first_name" 

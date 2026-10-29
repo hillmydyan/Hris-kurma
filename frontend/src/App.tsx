@@ -19,6 +19,7 @@ import { Notifications } from './pages/system/Notifications';
 
 // Management Backend Pages
 import { AdminAttendance } from './pages/attendance/AdminAttendance';
+import { AttendanceCorrectionCalendar } from './pages/attendance/AttendanceCorrectionCalendar';
 import { QrScreen } from './pages/attendance/QrScreen';
 import { DailyReportReview } from './pages/daily-report/DailyReportReview';
 import { Approval } from './pages/attendance/Approval';
@@ -87,6 +88,7 @@ function App() {
             <Route path="admin" element={<ManagementRoute><Outlet /></ManagementRoute>}>
               <Route index element={<AdminIndexRoute />} />
               <Route path="absensi/live" element={<AdminAttendance />} />
+              <Route path="absensi/koreksi" element={<Navigate to="/admin/penggajian" replace />} />
               <Route path="absensi/qr-screen" element={<QrScreen />} />
               <Route path="daily-reports/review" element={<DailyReportReview />} />
               <Route path="roster-weekend" element={<HrOnlyRoute><WeekendRoster /></HrOnlyRoute>} />
@@ -115,6 +117,8 @@ function App() {
             <Route path="karyawan/*" element={<Navigate to="/admin/karyawan" replace />} />
             <Route path="penggajian" element={<Navigate to="/admin/penggajian" replace />} />
             <Route path="persetujuan" element={<Navigate to="/admin/persetujuan" replace />} />
+            <Route path="absensi/koreksi" element={<Navigate to="/admin/penggajian" replace />} />
+            <Route path="koreksi-absen" element={<Navigate to="/admin/penggajian" replace />} />
             <Route path="pengaturan" element={<Navigate to="/admin/pengaturan" replace />} />
             {import.meta.env.DEV && <Route path="design-system" element={<DesignSystem />} />}
 

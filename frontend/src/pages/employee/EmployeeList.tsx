@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
+import { Avatar } from '../../components/ui/Avatar';
 
 interface Employee {
   id: number;
@@ -27,6 +28,8 @@ interface Employee {
   status: string;
   basic_salary?: number;
   allowances?: number;
+  photo?: string | null;
+  photo_url?: string | null;
   current_assignment?: {
     department?: { name: string };
     job_position?: { name: string };
@@ -414,9 +417,13 @@ export function EmployeeList() {
                         {/* Karyawan: avatar, nama, lalu NIK & email kecil abu-abu */}
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-8 h-8 rounded-full bg-subtle text-text-secondary flex items-center justify-center font-semibold text-xs shrink-0 border border-border-default">
-                              {employee.first_name.charAt(0)}{employee.last_name ? employee.last_name.charAt(0) : ''}
-                            </div>
+                            <Avatar
+                              src={employee.photo_url || employee.photo}
+                              name={`${employee.first_name} ${employee.last_name || ''}`}
+                              idKey={employee.id}
+                              size="sm"
+                              previewable
+                            />
                             <div className="min-w-0">
                               <p className="font-medium text-text-primary text-xs truncate leading-tight">
                                 {employee.first_name} {employee.last_name || ''}
@@ -502,9 +509,13 @@ export function EmployeeList() {
                   <div key={`m-${employee.id}`} className="p-3.5 bg-surface rounded-lg border border-border-default shadow-xs space-y-2.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-subtle text-text-secondary flex items-center justify-center font-semibold text-xs shrink-0 border border-border-default">
-                          {employee.first_name.charAt(0)}{employee.last_name ? employee.last_name.charAt(0) : ''}
-                        </div>
+                        <Avatar
+                          src={employee.photo_url || employee.photo}
+                          name={`${employee.first_name} ${employee.last_name || ''}`}
+                          idKey={employee.id}
+                          size="sm"
+                          previewable
+                        />
                         <div className="min-w-0">
                           <p className="font-medium text-text-primary text-xs truncate">
                             {employee.first_name} {employee.last_name || ''}

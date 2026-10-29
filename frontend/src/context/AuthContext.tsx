@@ -15,6 +15,8 @@ export interface UserEmployee {
   };
   weekend_pattern?: 'saturday_fixed' | 'sunday_fixed' | 'rotating';
   join_date?: string;
+  photo?: string | null;
+  photo_url?: string | null;
 }
 
 export interface WeekendScheduleInfo {
@@ -49,6 +51,7 @@ interface AuthContextType {
   logout: () => void;
   switchPortal: (mode: PortalMode) => void;
   refreshUser: () => Promise<void>;
+  updateUserPhoto: (photoUrl: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -160,6 +163,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('portal_mode', mode);
   };
 
+  const updateUserPhoto = (photoUrl: string) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated: User = {
+        ...prev,
+        employee: prev.employee
+          ? {
+              ...prev.employee,
+              photo: photoUrl,
+              photo_url: photoUrl,
+            }
+          : undefined,
+      };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -172,6 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         switchPortal,
         refreshUser,
+        updateUserPhoto,
       }}
     >
       {children}

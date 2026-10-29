@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -46,6 +47,7 @@ export function formatDateIndo(dateStr: string | null | undefined): string {
 }
 
 export function Approval() {
+  const navigate = useNavigate();
   const [corrections, setCorrections] = useState<any[]>([]);
   const [leaves, setLeaves] = useState<any[]>([]);
   const [swaps, setSwaps] = useState<any[]>([]);
@@ -474,8 +476,17 @@ export function Approval() {
           </p>
         </div>
 
-        {/* Action Buttons: Dua tombol berdampingan, sama tinggi, outline */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Action Buttons: Tiga tombol berdampingan, sama tinggi, outline */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button 
+            variant="outline" 
+            size="sm"
+            leftIcon={<Calendar className="w-4 h-4 text-primary" />}
+            onClick={() => navigate('/admin/penggajian')}
+            className="h-9 text-xs font-medium whitespace-nowrap"
+          >
+            Koreksi Absen (Payroll)
+          </Button>
           <Button 
             variant="outline" 
             size="sm"

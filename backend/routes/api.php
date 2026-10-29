@@ -76,17 +76,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('employees/template', [EmployeeController::class, 'template']);
     Route::post('employees/import', [EmployeeController::class, 'import']);
     Route::apiResource('employees', EmployeeController::class);
+    Route::post('employees/{employee}/photo', [EmployeeController::class, 'updatePhoto']);
+    Route::put('employees/{employee}/photo', [EmployeeController::class, 'updatePhoto']);
     Route::post('employees/{employee}/documents', [EmployeeController::class, 'uploadDocument']);
     Route::post('settings/bulk', [SettingController::class, 'updateBulk']);
     Route::apiResource('settings', SettingController::class);
     Route::get('audit-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'index']);
     Route::apiResource('attachments', AttachmentController::class);
     
+    Route::get('attendance/server-time', [\App\Http\Controllers\AttendanceController::class, 'serverTime']);
     Route::get('attendance/my-summary', [\App\Http\Controllers\AttendanceController::class, 'mySummary']);
     Route::get('attendance/qr-code', [\App\Http\Controllers\AttendanceController::class, 'getQrCode']);
     Route::get('attendance/static-qr', [\App\Http\Controllers\AttendanceController::class, 'getStaticQrCode']);
     Route::get('attendance/daily-qr', [\App\Http\Controllers\AttendanceController::class, 'getStaticQrCode']);
     Route::post('attendance/scan', [\App\Http\Controllers\AttendanceController::class, 'scanQrCode']);
+    Route::post('attendance/correct', [\App\Http\Controllers\AttendanceController::class, 'correct']);
+    Route::put('attendance/{id}', [\App\Http\Controllers\AttendanceController::class, 'update']);
     Route::get('attendance', [\App\Http\Controllers\AttendanceController::class, 'index']);
     
     Route::post('attendance-corrections/bulk', [\App\Http\Controllers\AttendanceCorrectionController::class, 'bulkApprove']);

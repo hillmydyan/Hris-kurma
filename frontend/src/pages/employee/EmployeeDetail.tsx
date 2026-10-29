@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../../lib/api';
+import { Avatar } from '../../components/ui/Avatar';
 
 export function EmployeeDetail() {
   const { id } = useParams<{ id: string }>();
@@ -113,9 +114,14 @@ export function EmployeeDetail() {
         <div className="space-y-4">
           <Card className="border border-border-default shadow-xs">
             <CardContent className="p-5 flex flex-col items-center text-center">
-              <div className="w-20 h-20 rounded-full bg-subtle text-text-secondary flex items-center justify-center font-bold text-xl mb-3 border border-border-default">
-                {getInitials(employee.first_name, employee.last_name)}
-              </div>
+              <Avatar
+                src={employee.photo_url || employee.photo}
+                name={`${employee.first_name} ${employee.last_name || ''}`}
+                idKey={employee.id}
+                size="xl"
+                className="mb-3"
+                previewable
+              />
               <h2 className="text-base font-semibold text-text-primary">
                 {employee.first_name} {employee.last_name || ''}
               </h2>

@@ -24,15 +24,16 @@ import { Html5Qrcode } from 'html5-qrcode';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { getLocalDateString } from '../../utils/date';
+import { ATTENDANCE_CONFIG } from '../../config/attendance';
 
-// Komponen jam terisolasi agar detak detik tidak me-render ulang seluruh halaman & scanner
-function LiveClock() {
+// Komponen jam terisolasi tersinkronisasi waktu server
+function LiveClock({ serverOffset = 0 }: { serverOffset?: number }) {
   const [currentTime, setCurrentTime] = useState<string>('');
   const [currentDate, setCurrentDate] = useState<string>('');
 
   useEffect(() => {
     const updateClock = () => {
-      const now = new Date();
+      const now = new Date(Date.now() + serverOffset);
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
       const seconds = String(now.getSeconds()).padStart(2, '0');
@@ -45,7 +46,7 @@ function LiveClock() {
     updateClock();
     const interval = setInterval(updateClock, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [serverOffset]);
 
   return (
     <div className="flex items-center gap-2">
@@ -79,6 +80,50 @@ export function MyAttendance() {
   const [submittingCorrection, setSubmittingCorrection] = useState(false);
 
   const [filterMonth, setFilterMonth] = useState(() => getLocalDateString().slice(0, 7));
+
+  // State sinkronisasi waktu server
+  const [serverOffset, setServerOffset] = useState<number>(0);
+  const [isAfternoonActive, setIsAfternoonActive] = useState<boolean>(false);
+
+  const syncServerTime = async () => {
+    try {
+      const res = await api.get('/attendance/server-time');
+      if (res.data?.server_time) {
+        const offset = new Date(res.data.server_time).getTime() - Date.now();
+        setServerOffset(offset);
+        if (typeof res.data?.is_afternoon_active === 'boolean') {
+          setIsAfternoonActive(res.data.is_afternoon_active);
+        }
+      }
+    } catch (e) {
+      // Fallback lokal jika endpoint tidak merespon
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const timeStr = `${hours}:${minutes}`;
+      setIsAfternoonActive(timeStr >= ATTENDANCE_CONFIG.AFTERNOON_START && timeStr <= ATTENDANCE_CONFIG.AFTERNOON_END);
+    }
+  };
+
+  useEffect(() => {
+    syncServerTime();
+  }, []);
+
+  // Periksa jendela waktu absen sore (15.00-17.00) setiap detik berdasarkan waktu server
+  useEffect(() => {
+    const checkAfternoonWindow = () => {
+      const nowServer = new Date(Date.now() + serverOffset);
+      const hours = String(nowServer.getHours()).padStart(2, '0');
+      const minutes = String(nowServer.getMinutes()).padStart(2, '0');
+      const timeStr = `${hours}:${minutes}`;
+      const active = timeStr >= ATTENDANCE_CONFIG.AFTERNOON_START && timeStr <= ATTENDANCE_CONFIG.AFTERNOON_END;
+      setIsAfternoonActive(active);
+    };
+
+    checkAfternoonWindow();
+    const interval = setInterval(checkAfternoonWindow, 1000);
+    return () => clearInterval(interval);
+  }, [serverOffset]);
 
   useEffect(() => {
     fetchAttendances();
@@ -387,7 +432,7 @@ export function MyAttendance() {
 
         {/* Baris Info: Tanggal · Jam Berjalan · Jadwal Kantor */}
         <div className="p-3 rounded-lg bg-surface border border-border-default flex items-center justify-between flex-wrap gap-2 text-xs text-text-secondary">
-          <LiveClock />
+          <LiveClock serverOffset={serverOffset} />
           <span className="text-text-muted">
             Jam kantor <span className="font-medium text-text-primary">08:00–16:00 WIB</span>
           </span>
@@ -469,7 +514,7 @@ export function MyAttendance() {
                   Absen Sore
                 </CardTitle>
                 <p className="text-xs text-text-muted mt-0.5">
-                  Pulang · mulai 16:00
+                  Pulang · {ATTENDANCE_CONFIG.AFTERNOON_START}–{ATTENDANCE_CONFIG.AFTERNOON_END} WIB
                 </p>
               </div>
 
@@ -478,9 +523,13 @@ export function MyAttendance() {
                 <Badge variant="success" dot className="shrink-0">
                   Tepat waktu
                 </Badge>
+              ) : isAfternoonActive ? (
+                <Badge variant="warning" dot className="shrink-0">
+                  Waktu Absen
+                </Badge>
               ) : (
                 <Badge variant="neutral" className="shrink-0">
-                  Belum absen
+                  Belum dibuka
                 </Badge>
               )}
             </div>
@@ -495,24 +544,44 @@ export function MyAttendance() {
 
               {/* Petunjuk Satu Baris Kecil */}
               <p className="text-xs text-text-secondary mt-2">
-                {hasCheckedOut ? (
-                  'Absen sore tercatat, jam kerja selesai.'
-                ) : (
-                  'Scan saat selesai jam kantor mulai pukul 16:00 WIB.'
-                )}
+                {hasCheckedOut
+                  ? 'Absen sore tercatat, jam kerja selesai.'
+                  : isAfternoonActive
+                  ? 'Scan saat jam pulang kantor (pukul 15.00–17.00 WIB).'
+                  : 'Absen sore hanya dapat dilakukan pada pukul 15.00–17.00 WIB.'}
               </p>
             </div>
 
             {/* Tombol Scan Selebar Kartu */}
             <div className="pt-2">
               <Button 
-                variant={hasCheckedIn && !hasCheckedOut ? 'primary' : 'outline'} 
-                className="w-full h-12 sm:h-11 font-medium text-sm justify-center" 
+                variant={hasCheckedIn && !hasCheckedOut && isAfternoonActive ? 'primary' : 'outline'} 
+                disabled={hasCheckedOut || !isAfternoonActive}
+                className={`w-full h-12 sm:h-11 font-medium text-sm justify-center ${
+                  (hasCheckedOut || !isAfternoonActive)
+                    ? 'opacity-60 cursor-not-allowed bg-subtle text-text-muted border-border-default'
+                    : ''
+                }`}
                 leftIcon={hasCheckedOut ? <CheckCircle2 className="w-4 h-4 text-success-fg" /> : <QrCode className="w-4 h-4" />}
-                onClick={() => openScanModal('sore')}
+                onClick={() => {
+                  if (!hasCheckedOut && isAfternoonActive) {
+                    openScanModal('sore');
+                  }
+                }}
               >
                 {hasCheckedOut ? 'Sudah Absen Sore' : 'Scan Absen Sore'}
               </Button>
+
+              {/* Keterangan kecil di bawah tombol saat disabled */}
+              {hasCheckedOut ? (
+                <p className="text-[11px] text-text-muted text-center mt-2 font-medium">
+                  {ATTENDANCE_CONFIG.AFTERNOON_ALREADY_HINT}
+                </p>
+              ) : !isAfternoonActive ? (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200/70 rounded px-2 py-1 text-center mt-2 font-medium">
+                  {ATTENDANCE_CONFIG.AFTERNOON_DISABLED_HINT}
+                </p>
+              ) : null}
             </div>
           </CardContent>
         </Card>

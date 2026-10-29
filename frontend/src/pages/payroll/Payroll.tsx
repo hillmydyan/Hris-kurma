@@ -17,11 +17,17 @@ import {
   User,
   Loader2,
   Send,
-  CheckCircle2
+  CheckCircle2,
+  FileSpreadsheet,
+  CalendarDays,
+  History,
+  ArrowRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
 import { formatRupiah, generateSlipHtml, printSlipDocument } from '../../utils/slipGenerator';
+import { exportPayrollToExcel } from '../../utils/exportPayrollExcel';
+import { AttendanceCorrectionCalendar } from '../attendance/AttendanceCorrectionCalendar';
 
 // Helper: Format tanggal Indonesia (WIB)
 function formatShortDateIndo(dateStr?: string): string {
@@ -70,6 +76,12 @@ export function Payroll() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // View state: Daftar Penggajian vs Koreksi Absen (Kalender)
+  const [activeTab, setActiveTab] = useState<'payroll' | 'correction'>('payroll');
+  const [selectedCorrectionEmployeeId, setSelectedCorrectionEmployeeId] = useState<number | string | undefined>(undefined);
+  const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
+  const [correctionModalEmployee, setCorrectionModalEmployee] = useState<any>(null);
+
   // Accordion for calculation rules
   const [showRules, setShowRules] = useState(false);
 
@@ -85,6 +97,25 @@ export function Payroll() {
   const [publishingAll, setPublishingAll] = useState(false);
   const [publishingSingleId, setPublishingSingleId] = useState<number | null>(null);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+
+  // State for Past Period Slip Dispatch & Selector
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState<string>('');
+  const [isPastPeriodModalOpen, setIsPastPeriodModalOpen] = useState(false);
+  const [selectedPastPeriodForModal, setSelectedPastPeriodForModal] = useState<any>(null);
+
+  // Helper: Dapatkan key periode berjalan saat ini berdasarkan siklus cut-off 28
+  const getCurrentCutoffKey = () => {
+    const today = new Date();
+    const day = today.getDate();
+    const d = new Date(today);
+    if (day > 27) {
+      d.setMonth(d.getMonth() + 1);
+    }
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  };
+  const currentDefaultPeriodKey = getCurrentCutoffKey();
 
   // State for HR Manual Payroll Adjustment Modal
   const [selectedAdjustmentEmployee, setSelectedAdjustmentEmployee] = useState<any>(null);
@@ -105,21 +136,38 @@ export function Payroll() {
     pay_date: '',
   });
 
-  const fetchData = async () => {
+  const fetchData = async (periodParams?: { period_key?: string; start_date?: string; end_date?: string }) => {
     try {
       setLoading(true);
+      const activeKey = periodParams?.period_key || selectedPeriodKey;
+      const summaryParams = periodParams || (activeKey ? { period_key: activeKey } : undefined);
+
       const [periodsRes, summaryRes] = await Promise.all([
         api.get('/payroll-periods'),
-        api.get('/payroll/summary')
+        api.get('/payroll/summary', { params: summaryParams })
       ]);
       const rawPeriods = periodsRes.data;
-      setPeriods(Array.isArray(rawPeriods) ? rawPeriods : (Array.isArray(rawPeriods?.data) ? rawPeriods.data : []));
+      const list = Array.isArray(rawPeriods) ? rawPeriods : (Array.isArray(rawPeriods?.data) ? rawPeriods.data : []);
+      setPeriods(list);
       setSummary(summaryRes.data);
+      if (summaryRes.data?.period_key) {
+        setSelectedPeriodKey(summaryRes.data.period_key);
+      }
     } catch (error) {
       console.error('Error fetching payroll data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSelectPeriod = (targetPeriod: any) => {
+    if (!targetPeriod) return;
+    setSelectedPeriodKey(targetPeriod.period_key);
+    fetchData({
+      period_key: targetPeriod.period_key,
+      start_date: targetPeriod.start_date,
+      end_date: targetPeriod.end_date,
+    });
   };
 
   useEffect(() => {
@@ -158,19 +206,25 @@ export function Payroll() {
     }
   };
 
-  const handlePublishAll = async () => {
-    if (!summary) return;
+  const handlePublishAll = async (targetSummary?: any) => {
+    const s = targetSummary || summary;
+    if (!s) return;
     setPublishingAll(true);
     try {
       const res = await api.post('/payroll/publish-all', {
-        period_key: summary.period_key,
-        start_date: summary.cutoff_start_date,
-        end_date: summary.cutoff_end_date,
-        period_label: summary.period_label,
+        period_key: s.period_key,
+        start_date: s.cutoff_start_date || s.start_date,
+        end_date: s.cutoff_end_date || s.end_date,
+        period_label: s.period_label || s.name,
       });
       alert(res.data?.message || 'Seluruh slip gaji berhasil dirilis ke Dashboard karyawan.');
       setIsPublishModalOpen(false);
-      fetchData();
+      setIsPastPeriodModalOpen(false);
+      fetchData({
+        period_key: s.period_key,
+        start_date: s.cutoff_start_date || s.start_date,
+        end_date: s.cutoff_end_date || s.end_date,
+      });
     } catch (error: any) {
       console.error('Error publishing all slips:', error);
       alert(error.response?.data?.error || error.response?.data?.message || 'Gagal merilis slip gaji.');
@@ -191,7 +245,11 @@ export function Payroll() {
         period_label: summary.period_label,
       });
       alert(res.data?.message || `Slip gaji ${emp.name} berhasil dikirim ke Dashboard karyawan.`);
-      fetchData();
+      fetchData({
+        period_key: summary.period_key,
+        start_date: summary.cutoff_start_date,
+        end_date: summary.cutoff_end_date,
+      });
     } catch (error: any) {
       console.error('Error publishing single slip:', error);
       alert(error.response?.data?.error || error.response?.data?.message || 'Gagal mengirim slip gaji.');
@@ -213,7 +271,11 @@ export function Payroll() {
         employee_id: empId,
       });
       alert(res.data?.message || 'Publikasi slip gaji berhasil dibatalkan.');
-      fetchData();
+      fetchData({
+        period_key: summary.period_key,
+        start_date: summary.cutoff_start_date,
+        end_date: summary.cutoff_end_date,
+      });
     } catch (error: any) {
       console.error('Error unpublishing:', error);
       alert(error.response?.data?.error || error.response?.data?.message || 'Gagal membatalkan publikasi.');
@@ -256,7 +318,11 @@ export function Payroll() {
       });
       alert(`Koreksi presensi & payroll untuk ${selectedAdjustmentEmployee.name} berhasil disimpan.`);
       setIsAdjustmentModalOpen(false);
-      fetchData();
+      fetchData({
+        period_key: summary?.period_key,
+        start_date: summary?.cutoff_start_date,
+        end_date: summary?.cutoff_end_date,
+      });
     } catch (error: any) {
       console.error('Error saving adjustment:', error);
       alert(error.response?.data?.message || 'Gagal menyimpan koreksi payroll.');
@@ -273,7 +339,11 @@ export function Payroll() {
       await api.delete(`/payroll/adjust/${selectedAdjustmentEmployee.id}?period_key=${summary?.period_key || '2026-10'}`);
       alert('Koreksi payroll berhasil direset ke otomatis.');
       setIsAdjustmentModalOpen(false);
-      fetchData();
+      fetchData({
+        period_key: summary?.period_key,
+        start_date: summary?.cutoff_start_date,
+        end_date: summary?.cutoff_end_date,
+      });
     } catch (error: any) {
       console.error('Error resetting adjustment:', error);
       alert(error.response?.data?.message || 'Gagal mereset koreksi.');
@@ -281,6 +351,8 @@ export function Payroll() {
       setAdjusting(false);
     }
   };
+
+  const [exporting, setExporting] = useState(false);
 
   const employeesList = summary?.employees || [];
   const filteredEmployees = employeesList.filter((emp: any) => {
@@ -291,6 +363,27 @@ export function Payroll() {
   });
 
   const uniqueDepartments = Array.from(new Set(employeesList.map((e: any) => e.department))).filter(Boolean);
+
+  const handleExportExcel = async () => {
+    if (filteredEmployees.length === 0) {
+      alert('Tidak ada data karyawan yang cocok dengan filter untuk diekspor.');
+      return;
+    }
+    setExporting(true);
+    try {
+      await exportPayrollToExcel({
+        employees: filteredEmployees,
+        periodLabel: summary?.period_label,
+        periodKey: summary?.period_key,
+        cutoffEndDate: summary?.cutoff_end_date,
+      });
+    } catch (error) {
+      console.error('Error exporting payroll to Excel:', error);
+      alert('Gagal mengekspor data ke Excel.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
@@ -330,7 +423,27 @@ export function Payroll() {
             className="h-9 text-xs font-medium whitespace-nowrap"
             title="Kirim seluruh slip gaji resmi periode ini ke Dashboard masing-masing karyawan"
           >
-            Rilis Semua Slip
+            {summary?.is_period_published ? 'Kirim Ulang Semua Slip' : 'Rilis Semua Slip'}
+          </Button>
+
+          <Button 
+            variant="outline" 
+            size="sm"
+            leftIcon={<History className="w-4 h-4 text-primary" />}
+            onClick={() => {
+              setIsPastPeriodModalOpen(true);
+              const pastList = periods.filter(p => p.period_key !== currentDefaultPeriodKey);
+              if (pastList.length > 0) {
+                const currentViewing = periods.find(p => p.period_key === summary?.period_key && p.period_key !== currentDefaultPeriodKey);
+                setSelectedPastPeriodForModal(currentViewing || pastList[0]);
+              } else if (periods.length > 0) {
+                setSelectedPastPeriodForModal(periods[0]);
+              }
+            }}
+            className="h-9 text-xs font-medium whitespace-nowrap"
+            title="Pilih dan kirim slip gaji untuk periode-periode terdahulu"
+          >
+            Kirim Slip Periode Lalu
           </Button>
 
           {(summary?.published_employees_count || 0) > 0 && (
@@ -347,6 +460,18 @@ export function Payroll() {
           )}
 
           <Button 
+            variant="outline" 
+            size="sm"
+            leftIcon={exporting ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
+            onClick={handleExportExcel}
+            disabled={exporting || loading}
+            className="h-9 text-xs font-medium whitespace-nowrap"
+            title="Ekspor data gaji pokok dan uang makan ke Excel (.xlsx)"
+          >
+            {exporting ? 'Mengekspor...' : 'Ekspor ke Excel'}
+          </Button>
+
+          <Button 
             variant="secondary" 
             size="sm"
             leftIcon={<Plus className="w-4 h-4" />}
@@ -357,6 +482,95 @@ export function Payroll() {
           </Button>
         </div>
       </div>
+
+      {/* Selector & Switcher Periode Penggajian */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-border-default rounded-lg shadow-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-text-secondary flex items-center gap-1.5 shrink-0">
+            <CalendarDays className="w-4 h-4 text-primary" />
+            Pilih Periode:
+          </span>
+
+          <select
+            value={summary?.period_key || ''}
+            onChange={(e) => {
+              const found = periods.find(p => p.period_key === e.target.value);
+              if (found) {
+                handleSelectPeriod(found);
+              }
+            }}
+            className="text-xs font-medium text-text-primary bg-subtle border border-border-default rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary min-w-[280px]"
+          >
+            {periods.map((p) => {
+              const isCurrent = p.period_key === currentDefaultPeriodKey;
+              const isPub = p.is_published;
+              return (
+                <option key={p.period_key || p.id} value={p.period_key}>
+                  {p.name} {isCurrent ? '(Bulan Ini)' : '(Periode Lalu)'} — {isPub ? 'Sudah Dirilis' : 'Draft'}
+                </option>
+              );
+            })}
+          </select>
+
+          {summary?.is_current_period === false ? (
+            <Badge variant="warning" dot className="h-5 text-[10px]">
+              Mode Riwayat Periode Lalu
+            </Badge>
+          ) : (
+            <Badge variant="neutral" className="h-5 text-[10px]">
+              Periode Berjalan Aktif
+            </Badge>
+          )}
+        </div>
+
+        {summary?.is_current_period === false && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const cur = periods.find(p => p.period_key === currentDefaultPeriodKey);
+              if (cur) handleSelectPeriod(cur);
+              else fetchData();
+            }}
+            className="h-8 text-xs font-medium self-start sm:self-auto text-primary border-primary/30 hover:bg-primary/5"
+            leftIcon={<RotateCcw className="w-3.5 h-3.5 text-primary" />}
+          >
+            Kembali ke Periode Berjalan
+          </Button>
+        )}
+      </div>
+
+      {/* Alert Banner ketika melihat Periode Lalu */}
+      {summary?.is_current_period === false && (
+        <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 animate-in fade-in">
+          <div className="flex items-start sm:items-center gap-2">
+            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+            <div>
+              <p className="font-semibold text-amber-950">
+                Menampilkan Data Periode Lalu: {summary?.period_label}
+              </p>
+              <p className="text-[11px] text-amber-800 mt-0.5">
+                Cut-off {formatShortDateIndo(summary?.cutoff_start_date)} s/d {formatShortDateIndo(summary?.cutoff_end_date)}.
+                {summary?.is_period_published 
+                  ? ` Seluruh slip gaji periode ini telah dirilis resmi pada ${summary?.period_published_at || 'sebelumnya'}.` 
+                  : ' Slip gaji periode ini belum dirilis ke Dashboard karyawan.'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Send className="w-3.5 h-3.5" />}
+              onClick={() => setIsPublishModalOpen(true)}
+              disabled={publishingAll}
+              className="h-7 text-xs font-medium"
+            >
+              {summary?.is_period_published ? 'Kirim Ulang Semua Slip' : 'Rilis Semua Slip Periode Ini'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Aturan Perhitungan (Ringkas, default tertutup) */}
       <div className="p-3 bg-subtle border border-border-default rounded-lg text-xs text-text-secondary">
@@ -429,18 +643,56 @@ export function Payroll() {
         </Card>
       </div>
 
-      {/* SECTION 1: DAFTAR GAJI KARYAWAN */}
+      {/* SECTION 1: TAB DAFTAR GAJI VS KOREKSI ABSEN */}
       <Card className="border border-border-default shadow-xs overflow-hidden">
-        <CardHeader className="py-3 px-4 border-b border-border-default flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <CardTitle className="text-sm font-semibold text-text-primary">
-            Daftar Gaji Karyawan
-          </CardTitle>
-          <Link to="/admin/karyawan" className="text-xs text-primary font-medium hover:underline">
+        {/* Navigation Tabs on Left */}
+        <div className="flex flex-wrap items-center justify-between border-b border-border-default px-4 pt-2 bg-surface">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('payroll')}
+              className={`pb-2.5 px-3 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-colors ${
+                activeTab === 'payroll'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-text-muted hover:text-text-primary'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Daftar Gaji Karyawan</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('correction');
+                if (filteredEmployees.length > 0 && !selectedCorrectionEmployeeId) {
+                  setSelectedCorrectionEmployeeId(filteredEmployees[0].id);
+                }
+              }}
+              className={`pb-2.5 px-3 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-colors ${
+                activeTab === 'correction'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-text-muted hover:text-text-primary'
+              }`}
+            >
+              <CalendarDays className="w-4 h-4" />
+              <span>Koreksi Absen (Kalender)</span>
+            </button>
+          </div>
+          <Link to="/admin/karyawan" className="text-xs text-primary font-medium hover:underline pb-2 hidden sm:inline-block">
             Kelola di Data Karyawan
           </Link>
-        </CardHeader>
+        </div>
 
-        <CardContent className="p-0">
+        {activeTab === 'correction' ? (
+          <div className="p-4 bg-surface">
+            <AttendanceCorrectionCalendar
+              initialEmployeeId={selectedCorrectionEmployeeId}
+              onCorrectionSaved={fetchData}
+              hideHeader={true}
+            />
+          </div>
+        ) : (
+          <CardContent className="p-0">
           {/* Filters Bar: Pencarian & Departemen sejajar sama tinggi */}
           <div className="p-3.5 border-b border-border-default flex flex-col sm:flex-row gap-3 justify-between items-center bg-subtle/20">
             <div className="relative w-full sm:max-w-md">
@@ -462,13 +714,24 @@ export function Payroll() {
                 id="dept-filter-select"
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
-                className="h-9 w-48 px-3 rounded-lg border border-border-default bg-surface text-text-primary text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                className="h-9 w-44 px-3 rounded-lg border border-border-default bg-surface text-text-primary text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
               >
                 <option value="all">Semua Departemen ({employeesList.length})</option>
                 {uniqueDepartments.map((dept: any) => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}
+                onClick={handleExportExcel}
+                disabled={exporting || loading}
+                className="h-9 text-xs font-medium whitespace-nowrap shrink-0"
+                title="Ekspor data saat ini ke Excel (.xlsx)"
+              >
+                Ekspor Excel
+              </Button>
             </div>
           </div>
 
@@ -542,24 +805,41 @@ export function Payroll() {
 
                         {/* 2. Presensi */}
                         <td className="py-3 px-4 whitespace-nowrap">
-                          <p className="font-medium text-text-primary text-xs">
-                            Hadir {presentCount} dari {standardDays} hari
-                          </p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            {emp.is_prorated ? (
-                              <span className="text-[10px] text-primary bg-indigo-50 border border-indigo-200 px-1 rounded font-medium" title={emp.adjustment_note || 'Prorata: Masuk di pertengahan bulan'}>
-                                Prorata
-                              </span>
-                            ) : unattended > 0 ? (
-                              <span className="text-[11px] text-text-muted">
-                                {unattended} hari izin/absen
-                              </span>
-                            ) : null}
-                            {emp.is_manually_adjusted && (
-                              <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1 rounded font-medium" title={emp.adjustment_note || 'Dikoreksi HR'}>
-                                Koreksi
-                              </span>
-                            )}
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <p className="font-medium text-text-primary text-xs">
+                                Hadir {presentCount} dari {standardDays} hari
+                              </p>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                {emp.is_prorated ? (
+                                  <span className="text-[10px] text-primary bg-indigo-50 border border-indigo-200 px-1 rounded font-medium" title={emp.adjustment_note || 'Prorata: Masuk di pertengahan bulan'}>
+                                    Prorata
+                                  </span>
+                                ) : unattended > 0 ? (
+                                  <span className="text-[11px] text-text-muted">
+                                    {unattended} hari izin/absen
+                                  </span>
+                                ) : null}
+                                {emp.is_manually_adjusted && (
+                                  <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1 rounded font-medium" title={emp.adjustment_note || 'Dikoreksi HR'}>
+                                    Koreksi
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              leftIcon={<CalendarDays className="w-3.5 h-3.5 text-primary" />}
+                              onClick={() => {
+                                setCorrectionModalEmployee(emp);
+                                setIsCorrectionModalOpen(true);
+                              }}
+                              className="h-7 text-[11px] px-2 font-medium shrink-0"
+                              title="Koreksi kalender absensi & sesuaikan gaji"
+                            >
+                              Koreksi
+                            </Button>
                           </div>
                         </td>
 
@@ -650,9 +930,13 @@ export function Payroll() {
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              leftIcon={<Sliders className="w-3.5 h-3.5" />}
-                              onClick={() => openAdjustmentModal(emp)}
+                              leftIcon={<CalendarDays className="w-3.5 h-3.5 text-primary" />}
+                              onClick={() => {
+                                setCorrectionModalEmployee(emp);
+                                setIsCorrectionModalOpen(true);
+                              }}
                               className="h-8 text-xs font-medium px-2.5"
+                              title="Koreksi kalender absensi & sesuaikan gaji"
                             >
                               Koreksi
                             </Button>
@@ -821,8 +1105,11 @@ export function Payroll() {
                       <Button
                         variant="outline"
                         size="sm"
-                        leftIcon={<Sliders className="w-3.5 h-3.5" />}
-                        onClick={() => openAdjustmentModal(emp)}
+                        leftIcon={<CalendarDays className="w-3.5 h-3.5 text-primary" />}
+                        onClick={() => {
+                          setCorrectionModalEmployee(emp);
+                          setIsCorrectionModalOpen(true);
+                        }}
                         className="flex-1 h-9 text-xs justify-center font-medium"
                       >
                         Koreksi
@@ -834,15 +1121,21 @@ export function Payroll() {
             )}
           </div>
         </CardContent>
+        )}
       </Card>
 
       {/* SECTION 2: RIWAYAT PERIODE PENGGAJIAN */}
       <Card className="border border-border-default shadow-xs overflow-hidden">
         <CardHeader className="py-3 px-4 border-b border-border-default flex items-center justify-between">
-          <CardTitle className="text-xs font-semibold text-text-primary">
-            Riwayat Periode Penggajian
-          </CardTitle>
-          <span className="text-[11px] text-text-muted">
+          <div>
+            <CardTitle className="text-xs font-semibold text-text-primary">
+              Riwayat Periode Penggajian
+            </CardTitle>
+            <p className="text-[11px] text-text-muted mt-0.5">
+              Klik "Buka" untuk meninjau rincian gaji pada periode lalu, atau "Kirim Slip" untuk merilis ke Dashboard karyawan.
+            </p>
+          </div>
+          <span className="text-[11px] text-text-muted shrink-0">
             {periods.length} periode tercatat
           </span>
         </CardHeader>
@@ -851,44 +1144,86 @@ export function Payroll() {
             <thead className="bg-subtle border-b border-border-default text-text-secondary font-semibold">
               <tr>
                 <th className="py-2.5 px-4">Nama Periode</th>
-                <th className="py-2.5 px-4">Tanggal Pembayaran</th>
+                <th className="py-2.5 px-4">Rentang Cut-Off</th>
                 <th className="py-2.5 px-4">Karyawan</th>
                 <th className="py-2.5 px-4 text-right">Total Anggaran</th>
-                <th className="py-2.5 px-4">Status</th>
+                <th className="py-2.5 px-4">Status Rilis Slip</th>
                 <th className="py-2.5 px-4 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default">
-              {periods.map((p, idx) => (
-                <tr key={idx} className="hover:bg-subtle/50 transition-colors">
-                  <td className="py-2.5 px-4 font-medium text-text-primary">{p.name}</td>
-                  <td className="py-2.5 px-4 text-text-secondary">{formatShortDateIndo(p.pay_date || p.end_date)}</td>
-                  <td className="py-2.5 px-4">{p.total_employees || summary?.active_employees_count || 10} orang</td>
-                  <td className="py-2.5 px-4 text-right font-medium text-text-primary tabular-nums">
-                    {formatRupiah(p.total_amount || summary?.total_monthly_payroll || 0)}
-                  </td>
-                  <td className="py-2.5 px-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                      p.status === 'paid' 
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
-                    }`}>
-                      {p.status === 'paid' ? 'Sudah Dibayar' : 'Berjalan'}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-4 text-right">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => alert(`Rekap penggajian periode ${p.name} siap diunduh.`)}
-                      className="h-7 text-xs px-2"
-                      leftIcon={<Download className="w-3 h-3" />}
-                    >
-                      Rekap PDF
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {periods.map((p, idx) => {
+                const isSelected = p.period_key === summary?.period_key;
+                return (
+                  <tr key={idx} className={`hover:bg-subtle/50 transition-colors ${isSelected ? 'bg-indigo-50/40' : ''}`}>
+                    <td className="py-2.5 px-4 font-medium text-text-primary">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{p.name}</span>
+                        {isSelected && (
+                          <Badge variant="primary" className="h-5 text-[10px]">
+                            Sedang Dibuka
+                          </Badge>
+                        )}
+                        {p.period_key === currentDefaultPeriodKey && (
+                          <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded font-normal">
+                            Bulan Ini
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-4 text-text-secondary">
+                      {p.start_date && p.end_date 
+                        ? `${formatShortDateIndo(p.start_date)} – ${formatShortDateIndo(p.end_date)}`
+                        : formatShortDateIndo(p.pay_date || p.end_date)}
+                    </td>
+                    <td className="py-2.5 px-4">{p.total_employees || summary?.active_employees_count || 10} orang</td>
+                    <td className="py-2.5 px-4 text-right font-medium text-text-primary tabular-nums">
+                      {formatRupiah(p.total_amount || summary?.total_monthly_payroll || 0)}
+                    </td>
+                    <td className="py-2.5 px-4">
+                      {p.is_published ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Dirilis ({p.published_count || p.total_employees} org)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                          Draft
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button 
+                          variant={isSelected ? "secondary" : "outline"}
+                          size="sm" 
+                          onClick={() => {
+                            handleSelectPeriod(p);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="h-7 text-xs px-2 font-medium"
+                          leftIcon={<ArrowRight className="w-3 h-3" />}
+                        >
+                          {isSelected ? 'Aktif' : 'Buka'}
+                        </Button>
+                        <Button 
+                          variant="primary" 
+                          size="sm" 
+                          onClick={() => {
+                            setSelectedPastPeriodForModal(p);
+                            setIsPastPeriodModalOpen(true);
+                          }}
+                          className="h-7 text-xs px-2 font-medium"
+                          leftIcon={<Send className="w-3 h-3" />}
+                          title="Kirim atau rilis slip gaji untuk periode ini"
+                        >
+                          Kirim Slip
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -945,11 +1280,140 @@ export function Payroll() {
               variant="primary"
               size="sm"
               leftIcon={publishingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              onClick={handlePublishAll}
+              onClick={() => handlePublishAll()}
               disabled={publishingAll}
               className="h-9 px-4 text-xs font-medium"
             >
               {publishingAll ? 'Sedang Menerbitkan...' : 'Ya, Rilis & Kirim Sekarang'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* MODAL PENGIRIMAN SLIP GAJI PERIODE LALU */}
+      <Modal
+        isOpen={isPastPeriodModalOpen}
+        onClose={() => !publishingAll && setIsPastPeriodModalOpen(false)}
+        title="Pengiriman Slip Gaji Periode Lalu"
+        size="md"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-3.5 bg-primary-soft/40 border border-primary/20 rounded-lg space-y-1">
+            <p className="font-semibold text-text-primary text-sm flex items-center gap-2">
+              <History className="w-4 h-4 text-primary" />
+              Pilih & Kirim Slip Gaji Periode Lalu
+            </p>
+            <p className="text-text-secondary leading-relaxed">
+              Kirimkan slip gaji resmi untuk cut-off periode sebelumnya ke Dashboard masing-masing karyawan beserta notifikasi in-app otomatis.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-medium text-text-primary">
+              Pilih Periode Penggajian yang Ingin Diproses:
+            </label>
+            <select
+              value={selectedPastPeriodForModal?.period_key || ''}
+              onChange={(e) => {
+                const found = periods.find(p => p.period_key === e.target.value);
+                if (found) setSelectedPastPeriodForModal(found);
+              }}
+              className="w-full text-xs font-medium text-text-primary bg-white border border-border-default rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+            >
+              <option value="" disabled>-- Pilih Periode Cut-Off --</option>
+              {periods.map((p) => {
+                const isCurrent = p.period_key === currentDefaultPeriodKey;
+                const statusText = p.is_published ? 'Sudah Dirilis' : 'Belum Dirilis';
+                return (
+                  <option key={p.period_key || p.id} value={p.period_key}>
+                    {p.name} {isCurrent ? '(Bulan Ini)' : '(Periode Lalu)'} — [{statusText}]
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {selectedPastPeriodForModal && (
+            <div className="bg-subtle p-3 rounded-md border border-border-default space-y-2 text-text-secondary">
+              <div className="flex justify-between items-center">
+                <span>Nama Periode:</span>
+                <span className="font-semibold text-text-primary">{selectedPastPeriodForModal.name}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Rentang Cut-Off:</span>
+                <span className="font-medium text-text-primary">
+                  {formatShortDateIndo(selectedPastPeriodForModal.start_date)} s/d {formatShortDateIndo(selectedPastPeriodForModal.end_date)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Status Penerbitan:</span>
+                {selectedPastPeriodForModal.is_published ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    Sudah Dirilis ({selectedPastPeriodForModal.published_count || selectedPastPeriodForModal.total_employees} karyawan)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                    Belum Dirilis (Draft)
+                  </span>
+                )}
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Total Karyawan Aktif:</span>
+                <span className="font-medium text-text-primary">{selectedPastPeriodForModal.total_employees} Orang</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Estimasi Anggaran Gaji:</span>
+                <span className="font-semibold text-emerald-600">{formatRupiah(selectedPastPeriodForModal.total_amount || 0)}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-900 leading-snug">
+            <strong>Catatan Operasional:</strong> Anda dapat memeriksa seluruh rincian komponen gaji karyawan untuk periode ini terlebih dahulu dengan menekan tombol <em>"Tinjau di Tabel"</em>, atau langsung mengirimkan seluruh slip gaji periode ini dengan menekan <em>"Rilis & Kirim Sekarang"</em>.
+          </div>
+
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2 border-t border-border-default">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsPastPeriodModalOpen(false)}
+              disabled={publishingAll}
+              className="h-9 px-3 text-xs font-medium"
+            >
+              Batal
+            </Button>
+            
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                if (selectedPastPeriodForModal) {
+                  handleSelectPeriod(selectedPastPeriodForModal);
+                  setIsPastPeriodModalOpen(false);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+              disabled={!selectedPastPeriodForModal || publishingAll}
+              className="h-9 px-3 text-xs font-medium"
+              leftIcon={<ArrowRight className="w-3.5 h-3.5" />}
+            >
+              Tinjau di Tabel Utama
+            </Button>
+
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={publishingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              onClick={() => {
+                if (selectedPastPeriodForModal) {
+                  handlePublishAll(selectedPastPeriodForModal);
+                }
+              }}
+              disabled={!selectedPastPeriodForModal || publishingAll}
+              className="h-9 px-4 text-xs font-medium"
+            >
+              {publishingAll ? 'Sedang Mengirim...' : (selectedPastPeriodForModal?.is_published ? 'Kirim Ulang Semua Slip' : 'Rilis & Kirim Sekarang')}
             </Button>
           </div>
         </div>
@@ -1108,6 +1572,55 @@ export function Payroll() {
                   <p className="font-medium text-text-primary">{selectedSlipEmployee.bank_name || 'BCA'} • {selectedSlipEmployee.bank_account_number || '-'}</p>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* MODAL KALENDER KOREKSI ABSEN & DAMPAK GAJI PER KARYAWAN */}
+      <Modal
+        isOpen={isCorrectionModalOpen}
+        onClose={() => setIsCorrectionModalOpen(false)}
+        title={`Koreksi Absensi & Dampak Gaji: ${correctionModalEmployee?.name || 'Karyawan'}`}
+        size="lg"
+      >
+        {correctionModalEmployee && (
+          <div className="space-y-4">
+            <div className="p-3 bg-subtle rounded-lg border border-border-default flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div>
+                <p className="font-semibold text-text-primary text-sm">
+                  {correctionModalEmployee.name}
+                </p>
+                <p className="text-[11px] text-text-muted">
+                  {correctionModalEmployee.employee_id} • {correctionModalEmployee.department} • {correctionModalEmployee.job_position}
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-text-muted block">Gaji Pokok Terdaftar:</span>
+                <span className="font-semibold text-text-primary tabular-nums">
+                  {formatRupiah(correctionModalEmployee.basic_salary)}
+                </span>
+              </div>
+            </div>
+
+            <AttendanceCorrectionCalendar
+              initialEmployeeId={correctionModalEmployee.id}
+              onCorrectionSaved={fetchData}
+              hideHeader={true}
+            />
+
+            <div className="flex items-center justify-between pt-2 border-t border-border-default">
+              <p className="text-[11px] text-text-muted">
+                Perubahan status absensi langsung menyesuaikan kalkulasi gaji (gaji pokok, uang makan, dan total).
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsCorrectionModalOpen(false)}
+                className="h-8 text-xs font-medium px-4"
+              >
+                Selesai
+              </Button>
             </div>
           </div>
         )}
