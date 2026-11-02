@@ -40,4 +40,4 @@ echo ">> Membersihkan dan memperbarui cache..."
 docker compose exec -T hris php artisan optimize:clear
 docker compose exec -T hris php artisan optimize
 
-echo "=== Selesai! HRIS aktif dalam 1 container (hris-app) di Port 8085 ==="
+echo "=== Selesai! HRIS aktif container (hris-app) di Port 8085 ==="
